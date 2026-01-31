@@ -10,7 +10,7 @@ import { StatusBadge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { ContactsTable } from '@/components/campaigns/ContactsTable';
 import { CampaignForm } from '@/components/campaigns/CampaignForm';
-import { AddContactsModal } from '@/components/campaigns/AddContactsModal';
+import AddContactsModal  from '@/components/campaigns/AddContactsModal';
 import { useCampaignStore } from '@/stores/campaign.store';
 import { useDashboardUpdates } from '@/hooks/useSocket';
 import { formatDate, formatDateInput } from '@/lib/utils';
