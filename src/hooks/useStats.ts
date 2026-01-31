@@ -43,84 +43,138 @@ export function useCallsDaily(days = 30) {
   const [data, setData] = useState<CallsPerDay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    statsApi.getCallsDaily(days).then(({ data }) => {
-      setData(data);
+  const fetch = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const { data: result } = await statsApi.getCallsDaily(days);
+      setData(result);
+    } catch (err) {
+      console.error('Error fetching calls daily:', err);
+    } finally {
       setIsLoading(false);
-    });
+    }
   }, [days]);
 
-  return { data, isLoading };
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return { data, isLoading, refetch: fetch };
 }
 
 export function useCallsMonthly(months = 12) {
   const [data, setData] = useState<CallsPerMonth[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    statsApi.getCallsMonthly(months).then(({ data }) => {
-      setData(data);
+  const fetch = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const { data: result } = await statsApi.getCallsMonthly(months);
+      setData(result);
+    } catch (err) {
+      console.error('Error fetching calls monthly:', err);
+    } finally {
       setIsLoading(false);
-    });
+    }
   }, [months]);
 
-  return { data, isLoading };
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return { data, isLoading, refetch: fetch };
 }
 
 export function useStatusDistribution(days = 30) {
   const [data, setData] = useState<CallStatusDistribution[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    statsApi.getStatusDistribution(days).then(({ data }) => {
-      setData(data);
+  const fetch = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const { data: result } = await statsApi.getStatusDistribution(days);
+      setData(result);
+    } catch (err) {
+      console.error('Error fetching status distribution:', err);
+    } finally {
       setIsLoading(false);
-    });
+    }
   }, [days]);
 
-  return { data, isLoading };
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return { data, isLoading, refetch: fetch };
 }
 
 export function useHangupCauses(limit = 5, days = 30) {
   const [data, setData] = useState<HangupCause[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    statsApi.getHangupCauses(limit, days).then(({ data }) => {
-      setData(data);
+  const fetch = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const { data: result } = await statsApi.getHangupCauses(limit, days);
+      setData(result);
+    } catch (err) {
+      console.error('Error fetching hangup causes:', err);
+    } finally {
       setIsLoading(false);
-    });
+    }
   }, [limit, days]);
 
-  return { data, isLoading };
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return { data, isLoading, refetch: fetch };
 }
 
 export function useAgentPerformance(days = 30) {
   const [data, setData] = useState<AgentPerformance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    statsApi.getAgentPerformance(days).then(({ data }) => {
-      setData(data);
+  const fetch = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const { data: result } = await statsApi.getAgentPerformance(days);
+      setData(result);
+    } catch (err) {
+      console.error('Error fetching agent performance:', err);
+    } finally {
       setIsLoading(false);
-    });
+    }
   }, [days]);
 
-  return { data, isLoading };
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return { data, isLoading, refetch: fetch };
 }
 
 export function useCampaignLeaderboard(limit = 5) {
   const [data, setData] = useState<CampaignLeaderboard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    statsApi.getCampaignLeaderboard(limit).then(({ data }) => {
-      setData(data);
+  const fetch = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const { data: result } = await statsApi.getCampaignLeaderboard(limit);
+      setData(result);
+    } catch (err) {
+      console.error('Error fetching campaign leaderboard:', err);
+    } finally {
       setIsLoading(false);
-    });
+    }
   }, [limit]);
 
-  return { data, isLoading };
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return { data, isLoading, refetch: fetch };
 }
 
 export function useChannelPressure() {
@@ -129,10 +183,10 @@ export function useChannelPressure() {
 
   const fetch = useCallback(async () => {
     try {
-      const { data } = await statsApi.getChannelPressure();
-      setData(data);
+      const { data: result } = await statsApi.getChannelPressure();
+      setData(result);
     } catch (err) {
-      // ignore
+      console.error('Error fetching channel pressure:', err);
     } finally {
       setIsLoading(false);
     }
@@ -151,26 +205,44 @@ export function useSuccessTrend(days = 30) {
   const [data, setData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    statsApi.getSuccessTrend(days).then(({ data }) => {
-      setData(data);
+  const fetch = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const { data: result } = await statsApi.getSuccessTrend(days);
+      setData(result);
+    } catch (err) {
+      console.error('Error fetching success trend:', err);
+    } finally {
       setIsLoading(false);
-    });
+    }
   }, [days]);
 
-  return { data, isLoading };
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return { data, isLoading, refetch: fetch };
 }
 
 export function useRetryRate(days = 30) {
   const [data, setData] = useState<{ total: number; withRetry: number; retryRate: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    statsApi.getRetryRate(days).then(({ data }) => {
-      setData(data);
+  const fetch = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const { data: result } = await statsApi.getRetryRate(days);
+      setData(result);
+    } catch (err) {
+      console.error('Error fetching retry rate:', err);
+    } finally {
       setIsLoading(false);
-    });
+    }
   }, [days]);
 
-  return { data, isLoading };
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return { data, isLoading, refetch: fetch };
 }

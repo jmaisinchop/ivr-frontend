@@ -6,12 +6,11 @@ import axios from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
-// CORRECCIÓN: Usar nombres en inglés para coincidir con el DTO del Backend
 interface Contact {
   identification: string;
-  name: string;    // Antes 'nombre'
-  phone: string;   // Antes 'telefono'
-  message: string; // Antes 'mensaje'
+  name: string;
+  phone: string;
+  message: string;
 }
 
 interface AddContactsModalProps {
@@ -22,12 +21,9 @@ interface AddContactsModalProps {
 }
 
 interface PadreNivel {
-  id_padre: number;
-  nombre_padre: string;
-  niveles: {
-    id_nivel: number;
-    nombre_nivel: string;
-  }[];
+  padre: string;
+  niveles_concatenados: string;
+  es_propia: boolean;
 }
 
 interface ExcelColumn {
@@ -48,27 +44,22 @@ export default function AddContactsModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Excel mapping states
   const [excelColumns, setExcelColumns] = useState<ExcelColumn[]>([]);
   const [excelData, setExcelData] = useState<string[][]>([]);
-  
-  // Estado para guardar qué columna corresponde a qué dato
+
   const [columnMapping, setColumnMapping] = useState({
     telefono: '',
     nombre: '',
     identificacion: '',
   });
-  
-  // Estado para la plantilla del mensaje
+
   const [messageTemplate, setMessageTemplate] = useState('');
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
 
   const [showMapping, setShowMapping] = useState(false);
 
-  // Database states
   const [padresNiveles, setPadresNiveles] = useState<PadreNivel[]>([]);
-  const [selectedPadre, setSelectedPadre] = useState<number | null>(null);
-  const [selectedNivel, setSelectedNivel] = useState<number | null>(null);
+  const [selectedPadre, setSelectedPadre] = useState<string | null>(null);
   const [loadingDb, setLoadingDb] = useState(false);
 
   useEffect(() => {
@@ -76,7 +67,7 @@ export default function AddContactsModal({
       loadPadresNiveles();
     }
     if (isOpen && defaultMessage && !messageTemplate) {
-        setMessageTemplate(defaultMessage);
+      setMessageTemplate(defaultMessage);
     }
   }, [isOpen, mode, defaultMessage]);
 
@@ -96,25 +87,33 @@ export default function AddContactsModal({
   };
 
   const loadContactsFromDb = async () => {
-    if (!selectedPadre || !selectedNivel) {
-      toast.error('Selecciona una cartera y un nivel');
+    if (!selectedPadre) {
+      toast.error('Selecciona una cartera');
+      return;
+    }
+
+    const selectedPadreObj = padresNiveles.find(p => p.padre === selectedPadre);
+    if (!selectedPadreObj) {
+      toast.error('Cartera no válida');
       return;
     }
 
     setLoadingDb(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.post(`${API_URL}/contactos/contactosnivel`, 
-        { id_padre: selectedPadre, id_nivel: selectedNivel },
+      const response = await axios.post(`${API_URL}/contactos/contactosnivel`,
+        {
+          niveles: selectedPadreObj.niveles_concatenados,
+          esPropia: selectedPadreObj.es_propia
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const data = response.data;
-      
-      // CORRECCIÓN: Mapear la respuesta de la DB a las propiedades en inglés
+
       const formattedContacts: Contact[] = data.map((c: any) => ({
-        identification: c.identificacion || '',
+        identification: c.cedula || '',
         name: c.nombre || '',
-        phone: c.telefono || '',
+        phone: c.numero || '',
         message: defaultMessage,
       }));
 
@@ -131,16 +130,16 @@ export default function AddContactsModal({
     try {
       const arrayBuffer = await file.arrayBuffer();
       const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-      
+
       if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
         throw new Error('El archivo Excel no contiene hojas válidas');
       }
-      
+
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      
+
       const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-      
+
       if (jsonData.length === 0) {
         throw new Error('La hoja de Excel está vacía');
       }
@@ -151,18 +150,18 @@ export default function AddContactsModal({
         index
       }));
 
-      const dataRows = jsonData.slice(1).filter(row => 
+      const dataRows = jsonData.slice(1).filter(row =>
         Array.isArray(row) && row.some(cell => cell !== null && cell !== '')
       );
 
-      const stringRows = dataRows.map(row => 
+      const stringRows = dataRows.map(row =>
         row.map(cell => cell !== null && cell !== undefined ? String(cell).trim() : '')
       );
 
       setExcelColumns(columns);
       setExcelData(stringRows);
       setShowMapping(true);
-      
+
       const autoMapping: any = {
         telefono: '',
         nombre: '',
@@ -182,7 +181,7 @@ export default function AddContactsModal({
 
       setColumnMapping(autoMapping);
       toast.success(`Archivo cargado: ${stringRows.length} registros encontrados`);
-      
+
     } catch (error: any) {
       throw new Error(`Error procesando archivo Excel: ${error.message}`);
     }
@@ -191,14 +190,14 @@ export default function AddContactsModal({
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     setUploadedFile(file);
     setLoading(true);
     setError(null);
-    
+
     try {
       const fileExtension = file.name.split('.').pop()?.toLowerCase();
-      
+
       if (fileExtension === 'xlsx' || fileExtension === 'xls') {
         await processExcelFile(file);
       } else if (fileExtension === 'csv') {
@@ -207,7 +206,7 @@ export default function AddContactsModal({
           .split('\n')
           .map(line => line.split(',').map(cell => cell.trim()))
           .filter(Boolean);
-        
+
         if (rows.length === 0) {
           throw new Error('El archivo está vacío');
         }
@@ -237,22 +236,22 @@ export default function AddContactsModal({
   const insertVariable = (variableName: string) => {
     const variable = `{{${variableName}}}`;
     const textarea = messageInputRef.current;
-    
+
     if (textarea) {
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const newValue = 
-            messageTemplate.substring(0, start) + 
-            variable + 
-            messageTemplate.substring(end);
-        
-        setMessageTemplate(newValue);
-        setTimeout(() => {
-            textarea.focus();
-            textarea.setSelectionRange(start + variable.length, start + variable.length);
-        }, 0);
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newValue =
+        messageTemplate.substring(0, start) +
+        variable +
+        messageTemplate.substring(end);
+
+      setMessageTemplate(newValue);
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + variable.length, start + variable.length);
+      }, 0);
     } else {
-        setMessageTemplate(prev => prev + variable);
+      setMessageTemplate(prev => prev + variable);
     }
   };
 
@@ -266,14 +265,14 @@ export default function AddContactsModal({
       const telefonoIndex = excelColumns.find(c => c.name === columnMapping.telefono)?.index;
       const nombreIndex = excelColumns.find(c => c.name === columnMapping.nombre)?.index;
       const identificacionIndex = excelColumns.find(c => c.name === columnMapping.identificacion)?.index;
-      
+
       if (telefonoIndex === undefined) {
         throw new Error('Columna de teléfono no encontrada');
       }
 
       const parsedContacts: Contact[] = excelData.map((row, index) => {
         const telefono = row[telefonoIndex] || '';
-        
+
         if (!telefono) {
           console.warn(`Fila ${index + 2}: teléfono vacío, se omitirá`);
           return null;
@@ -281,19 +280,18 @@ export default function AddContactsModal({
 
         let finalMessage = messageTemplate;
         if (finalMessage) {
-            finalMessage = finalMessage.replace(/\{\{(.*?)\}\}/g, (match, p1) => {
-                const colName = p1.trim();
-                const col = excelColumns.find(c => c.name === colName);
-                if (col && row[col.index] !== undefined) {
-                    return row[col.index]; 
-                }
-                return match; 
-            });
+          finalMessage = finalMessage.replace(/\{\{(.*?)\}\}/g, (match, p1) => {
+            const colName = p1.trim();
+            const col = excelColumns.find(c => c.name === colName);
+            if (col && row[col.index] !== undefined) {
+              return row[col.index];
+            }
+            return match;
+          });
         } else {
-            finalMessage = defaultMessage;
+          finalMessage = defaultMessage;
         }
 
-        // CORRECCIÓN: Generar objeto con claves en inglés (name, phone, etc.)
         return {
           identification: identificacionIndex !== undefined ? (row[identificacionIndex] || '') : '',
           name: nombreIndex !== undefined ? (row[nombreIndex] || '') : '',
@@ -323,7 +321,6 @@ export default function AddContactsModal({
         if (parts.length < 3) {
           throw new Error(`Línea ${index + 1}: debe tener al menos 3 columnas`);
         }
-        // CORRECCIÓN: Generar objeto con claves en inglés
         return {
           identification: parts[0],
           name: parts[1],
@@ -344,9 +341,9 @@ export default function AddContactsModal({
       toast.error('No hay contactos para agregar');
       return;
     }
-    
+
     await onAdd(contacts);
-    
+
     setContacts([]);
     setManualInput('');
     setUploadedFile(null);
@@ -354,19 +351,16 @@ export default function AddContactsModal({
     setExcelColumns([]);
     setExcelData([]);
     setColumnMapping({ telefono: '', nombre: '', identificacion: '' });
-    setMessageTemplate(''); 
-    
+    setMessageTemplate('');
+
     onClose();
   };
 
   if (!isOpen) return null;
 
-  const selectedPadreData = padresNiveles.find(p => p.id_padre === selectedPadre);
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-5xl max-h-[95vh] overflow-hidden">
-        {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -384,16 +378,14 @@ export default function AddContactsModal({
           </button>
         </div>
 
-        {/* Body */}
         <div className="p-6 overflow-y-auto max-h-[calc(95vh-180px)]">
           <div className="grid grid-cols-3 gap-4 mb-6">
             <button
               onClick={() => setMode('manual')}
-              className={`p-4 border-2 rounded-lg transition-all ${
-                mode === 'manual'
-                  ? 'border-gray-500 bg-gray-50 dark:bg-gray-900/20'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-              }`}
+              className={`p-4 border-2 rounded-lg transition-all ${mode === 'manual'
+                ? 'border-gray-500 bg-gray-50 dark:bg-gray-900/20'
+                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                }`}
             >
               <User className="w-6 h-6 mx-auto mb-2 text-gray-500" />
               <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
@@ -403,11 +395,10 @@ export default function AddContactsModal({
 
             <button
               onClick={() => setMode('excel')}
-              className={`p-4 border-2 rounded-lg transition-all ${
-                mode === 'excel'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
-              }`}
+              className={`p-4 border-2 rounded-lg transition-all ${mode === 'excel'
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                }`}
             >
               <FileSpreadsheet className="w-6 h-6 mx-auto mb-2 text-blue-500" />
               <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
@@ -417,11 +408,10 @@ export default function AddContactsModal({
 
             <button
               onClick={() => setMode('database')}
-              className={`p-4 border-2 rounded-lg transition-all ${
-                mode === 'database'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
-              }`}
+              className={`p-4 border-2 rounded-lg transition-all ${mode === 'database'
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                }`}
             >
               <Database className="w-6 h-6 mx-auto mb-2 text-blue-500" />
               <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
@@ -557,7 +547,7 @@ export default function AddContactsModal({
                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">
                   Plantilla del Mensaje
                 </label>
-                
+
                 <div className="mb-3">
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                     Haga clic para insertar variable:
@@ -570,7 +560,7 @@ export default function AddContactsModal({
                         className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-sm font-medium hover:opacity-80 transition-opacity flex items-center"
                         type="button"
                       >
-                        <Plus className="w-3 h-3 mr-1"/> {col.name}
+                        <Plus className="w-3 h-3 mr-1" /> {col.name}
                       </button>
                     ))}
                   </div>
@@ -646,10 +636,7 @@ export default function AddContactsModal({
                 <select
                   id="select-padre"
                   value={selectedPadre || ''}
-                  onChange={(e) => {
-                    setSelectedPadre(Number(e.target.value));
-                    setSelectedNivel(null);
-                  }}
+                  onChange={(e) => setSelectedPadre(e.target.value)}
                   disabled={loadingDb}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
                     bg-white dark:bg-gray-700 text-gray-900 dark:text-white
@@ -657,40 +644,16 @@ export default function AddContactsModal({
                 >
                   <option value="">-- Seleccionar --</option>
                   {padresNiveles.map((padre) => (
-                    <option key={padre.id_padre} value={padre.id_padre}>
-                      {padre.nombre_padre}
+                    <option key={padre.padre} value={padre.padre}>
+                      {padre.padre} ({padre.es_propia ? 'Propia' : 'Externa'})
                     </option>
                   ))}
                 </select>
               </div>
 
-              {selectedPadre && selectedPadreData && (
-                <div>
-                  <label htmlFor="select-nivel" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Seleccionar Nivel
-                  </label>
-                  <select
-                    id="select-nivel"
-                    value={selectedNivel || ''}
-                    onChange={(e) => setSelectedNivel(Number(e.target.value))}
-                    disabled={loadingDb}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                      bg-white dark:bg-gray-700 text-gray-900 dark:text-white
-                      focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">-- Seleccionar --</option>
-                    {selectedPadreData.niveles.map((nivel) => (
-                      <option key={nivel.id_nivel} value={nivel.id_nivel}>
-                        {nivel.nombre_nivel}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
               <button
                 onClick={loadContactsFromDb}
-                disabled={!selectedPadre || !selectedNivel || loadingDb}
+                disabled={!selectedPadre || loadingDb}
                 className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600
                   disabled:opacity-50 disabled:cursor-not-allowed"
               >

@@ -26,22 +26,60 @@ import { formatPercentage } from '@/lib/utils';
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const { data: overview, isLoading: loadingOverview, refetch: refetchOverview } = useDashboardOverview();
-  const { data: callsDaily, isLoading: loadingCalls } = useCallsDaily(30);
-  const { data: statusDist, isLoading: loadingStatus } = useStatusDistribution(30);
-  const { data: leaderboard, isLoading: loadingLeaderboard } = useCampaignLeaderboard(5);
-  const { data: channelPressure, isLoading: loadingChannels } = useChannelPressure();
+  const { data: callsDaily, isLoading: loadingCalls, refetch: refetchCalls } = useCallsDaily(30);
+  const { data: statusDist, isLoading: loadingStatus, refetch: refetchStatus } = useStatusDistribution(30);
+  const { data: leaderboard, isLoading: loadingLeaderboard, refetch: refetchLeaderboard } = useCampaignLeaderboard(5);
+  const { data: channelPressure, isLoading: loadingChannels, refetch: refetchChannels } = useChannelPressure();
   const { campaigns, fetchCampaigns } = useCampaignStore();
 
   useEffect(() => {
     fetchCampaigns();
   }, [fetchCampaigns]);
 
-  // Listen to real-time updates
+  // ✅ Invalidar cache completo cuando llegan eventos
   useDashboardUpdates(
-    useCallback(() => {
+    useCallback((update) => {
+      console.log('📊 Dashboard update recibido:', update.event);
+
+      // Refrescar overview siempre
       refetchOverview();
-    }, [refetchOverview])
+
+      // Si hay cambios en campañas, refrescar todo
+      if (update.event === 'call-finished' || update.campaignId) {
+        console.log('🔄 Invalidando cache completo del dashboard');
+        refetchCalls();
+        refetchStatus();
+        refetchLeaderboard();
+        refetchChannels();
+        fetchCampaigns();
+      }
+
+      // Si es cambio de canales, refrescar específicamente
+      if (update.event === 'channel-update') {
+        console.log('📡 Actualizando presión de canales');
+        refetchChannels();
+        refetchOverview();
+      }
+    }, [
+      refetchOverview,
+      refetchCalls,
+      refetchStatus,
+      refetchLeaderboard,
+      refetchChannels,
+      fetchCampaigns
+    ])
   );
+
+  // ✅ Polling de respaldo cada 60 segundos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('🔄 Polling de respaldo del dashboard');
+      refetchOverview();
+      refetchChannels();
+    }, 60000); // 1 minuto
+
+    return () => clearInterval(interval);
+  }, [refetchOverview, refetchChannels]);
 
   const ivr = overview?.ivr;
 
@@ -124,7 +162,7 @@ export default function DashboardPage() {
                     <div key={i} className="h-12 bg-dark-700/50 rounded-lg animate-pulse" />
                   ))}
                 </div>
-              ) : (
+              ) : leaderboard && leaderboard.length > 0 ? (
                 <div className="space-y-3">
                   {leaderboard.map((campaign, index) => (
                     <Link
@@ -160,6 +198,10 @@ export default function DashboardPage() {
                     </Link>
                   ))}
                 </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-dark-400">No hay campañas para mostrar</p>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -174,24 +216,30 @@ export default function DashboardPage() {
             </Link>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {campaigns.slice(0, 6).map((campaign) => (
-                <Link
-                  key={campaign.id}
-                  href={`/campaigns/${campaign.id}`}
-                  className="p-4 bg-dark-800/50 rounded-xl border border-dark-700/50 hover:border-primary-500/50 transition-colors"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium text-white truncate">{campaign.name}</h4>
-                    <StatusBadge status={campaign.status} />
-                  </div>
-                  <div className="flex items-center gap-4 text-sm text-dark-400">
-                    <span>{campaign.concurrentCalls} canales</span>
-                    <span>{campaign.maxRetries} reintentos</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
+            {campaigns && campaigns.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {campaigns.slice(0, 6).map((campaign) => (
+                  <Link
+                    key={campaign.id}
+                    href={`/campaigns/${campaign.id}`}
+                    className="p-4 bg-dark-800/50 rounded-xl border border-dark-700/50 hover:border-primary-500/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium text-white truncate">{campaign.name}</h4>
+                      <StatusBadge status={campaign.status} />
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-dark-400">
+                      <span>{campaign.concurrentCalls} canales</span>
+                      <span>{campaign.maxRetries} reintentos</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-dark-400">No hay campañas para mostrar</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
