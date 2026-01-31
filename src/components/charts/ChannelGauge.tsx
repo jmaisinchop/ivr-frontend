@@ -13,84 +13,97 @@ interface ChannelGaugeProps {
 export function ChannelGauge({ total, used, available, loading }: ChannelGaugeProps) {
   const percentage = total > 0 ? (used / total) * 100 : 0;
 
-  const getColor = () => {
-    if (percentage >= 90) return 'from-red-500 to-red-600';
-    if (percentage >= 70) return 'from-yellow-500 to-orange-500';
-    return 'from-primary-500 to-primary-600';
+  // Determinar colores del gradiente según el uso
+  const getGradientColors = () => {
+    if (percentage >= 90) return { start: '#ef4444', end: '#dc2626' }; // Red
+    if (percentage >= 70) return { start: '#eab308', end: '#f97316' }; // Yellow/Orange
+    return { start: '#22c55e', end: '#16a34a' }; // Green
   };
+
+  const gradientColors = getGradientColors();
 
   if (loading) {
     return (
       <Card>
-        <CardHeader>
-          <h3 className="text-lg font-semibold text-white">Uso de Canales</h3>
+        <CardHeader className="pb-2">
+          <div className="h-6 w-1/2 bg-muted rounded animate-pulse" />
         </CardHeader>
         <CardContent>
-          <div className="h-40 bg-dark-700/50 rounded-xl animate-pulse" />
+          <div className="flex flex-col items-center justify-center py-4">
+             <div className="w-40 h-40 rounded-full border-4 border-muted/30 border-t-muted animate-spin mb-6" />
+             <div className="w-full h-12 bg-muted/50 rounded-lg animate-pulse" />
+          </div>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <h3 className="text-lg font-semibold text-white">Uso de Canales</h3>
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-2">
+        <h3 className="text-lg font-semibold text-foreground tracking-tight">Uso de Canales</h3>
       </CardHeader>
       <CardContent>
         <div className="flex flex-col items-center">
           {/* Circular gauge */}
-          <div className="relative w-40 h-40">
+          <div className="relative w-48 h-48 py-4">
             <svg className="w-full h-full transform -rotate-90">
               {/* Background circle */}
               <circle
-                cx="80"
-                cy="80"
+                cx="50%"
+                cy="50%"
                 r="70"
                 stroke="currentColor"
                 strokeWidth="12"
                 fill="none"
-                className="text-dark-700"
+                className="text-muted/20"
               />
               {/* Progress circle */}
               <circle
-                cx="80"
-                cy="80"
+                cx="50%"
+                cy="50%"
                 r="70"
                 stroke="url(#gaugeGradient)"
                 strokeWidth="12"
                 fill="none"
                 strokeLinecap="round"
                 strokeDasharray={`${percentage * 4.4} 440`}
-                className="transition-all duration-1000 ease-out"
+                className="transition-all duration-1000 ease-out drop-shadow-sm"
               />
               <defs>
                 <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" className={cn('stop-color-primary-500', percentage >= 70 && 'stop-color-yellow-500', percentage >= 90 && 'stop-color-red-500')} stopColor={percentage >= 90 ? '#ef4444' : percentage >= 70 ? '#eab308' : '#22c55e'} />
-                  <stop offset="100%" className={cn('stop-color-primary-600', percentage >= 70 && 'stop-color-orange-500', percentage >= 90 && 'stop-color-red-600')} stopColor={percentage >= 90 ? '#dc2626' : percentage >= 70 ? '#f97316' : '#16a34a'} />
+                  <stop offset="0%" stopColor={gradientColors.start} />
+                  <stop offset="100%" stopColor={gradientColors.end} />
                 </linearGradient>
               </defs>
             </svg>
+            
             {/* Center text */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-3xl font-bold text-white">{percentage.toFixed(0)}%</span>
-              <span className="text-xs text-dark-400">En uso</span>
+              <span className="text-4xl font-bold text-foreground tracking-tighter">
+                {percentage.toFixed(0)}%
+              </span>
+              <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                En uso
+              </span>
             </div>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 w-full mt-6">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-white">{total}</p>
-              <p className="text-xs text-dark-400">Total</p>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-3 gap-2 w-full mt-2">
+            <div className="flex flex-col items-center p-2 rounded-xl bg-muted/30 border border-border/50">
+              <span className="text-xs font-medium text-muted-foreground uppercase">Total</span>
+              <span className="text-xl font-bold text-foreground">{total}</span>
             </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-cyan-400">{used}</p>
-              <p className="text-xs text-dark-400">En uso</p>
+            
+            <div className="flex flex-col items-center p-2 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30">
+              <span className="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase">En uso</span>
+              <span className="text-xl font-bold text-blue-700 dark:text-blue-300">{used}</span>
             </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-green-400">{available}</p>
-              <p className="text-xs text-dark-400">Disponibles</p>
+            
+            <div className="flex flex-col items-center p-2 rounded-xl bg-green-50/50 dark:bg-green-900/10 border border-green-100 dark:border-green-800/30">
+              <span className="text-xs font-medium text-green-600 dark:text-green-400 uppercase">Libres</span>
+              <span className="text-xl font-bold text-green-700 dark:text-green-300">{available}</span>
             </div>
           </div>
         </div>

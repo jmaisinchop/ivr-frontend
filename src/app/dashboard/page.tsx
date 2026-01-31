@@ -8,6 +8,7 @@ import { CallsChart } from '@/components/charts/CallsChart';
 import { StatusPieChart } from '@/components/charts/StatusPieChart';
 import { ChannelGauge } from '@/components/charts/ChannelGauge';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button'; // <--- Import añadido
 import { StatusBadge } from '@/components/ui/Badge';
 import {
   useDashboardOverview,
@@ -19,9 +20,9 @@ import {
 import { useDashboardUpdates } from '@/hooks/useSocket';
 import { useCampaignStore } from '@/stores/campaign.store';
 import { useAuthStore } from '@/stores/auth.store';
-import { Megaphone, Phone, TrendingUp, Gauge, Trophy } from 'lucide-react';
+import { Megaphone, Phone, TrendingUp, Gauge, Trophy, ArrowRight, Activity } from 'lucide-react';
 import Link from 'next/link';
-import { formatPercentage } from '@/lib/utils';
+import { formatPercentage, cn } from '@/lib/utils';
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
@@ -39,14 +40,11 @@ export default function DashboardPage() {
   // ✅ Invalidar cache completo cuando llegan eventos
   useDashboardUpdates(
     useCallback((update) => {
-      console.log('📊 Dashboard update recibido:', update.event);
-
       // Refrescar overview siempre
       refetchOverview();
 
       // Si hay cambios en campañas, refrescar todo
       if (update.event === 'call-finished' || update.campaignId) {
-        console.log('🔄 Invalidando cache completo del dashboard');
         refetchCalls();
         refetchStatus();
         refetchLeaderboard();
@@ -56,7 +54,6 @@ export default function DashboardPage() {
 
       // Si es cambio de canales, refrescar específicamente
       if (update.event === 'channel-update') {
-        console.log('📡 Actualizando presión de canales');
         refetchChannels();
         refetchOverview();
       }
@@ -73,7 +70,6 @@ export default function DashboardPage() {
   // ✅ Polling de respaldo cada 60 segundos
   useEffect(() => {
     const interval = setInterval(() => {
-      console.log('🔄 Polling de respaldo del dashboard');
       refetchOverview();
       refetchChannels();
     }, 60000); // 1 minuto
@@ -98,14 +94,14 @@ export default function DashboardPage() {
             value={ivr?.activeCampaigns?.value ?? 0}
             change={ivr?.activeCampaigns?.change}
             icon={<Megaphone className="w-5 h-5 text-white" />}
-            iconColor="from-accent-violet to-purple-700"
+            iconColor="from-purple-500 to-indigo-600"
             loading={loadingOverview}
           />
           <StatsCard
             title="Llamadas en Curso"
             value={ivr?.ongoingCalls?.value ?? 0}
-            icon={<Phone className="w-5 h-5 text-white" />}
-            iconColor="from-accent-cyan to-cyan-700"
+            icon={<Activity className="w-5 h-5 text-white" />}
+            iconColor="from-cyan-500 to-blue-600"
             loading={loadingOverview}
           />
           <StatsCard
@@ -113,14 +109,14 @@ export default function DashboardPage() {
             value={formatPercentage(ivr?.successRate?.value ?? 0)}
             change={ivr?.successRate?.change}
             icon={<TrendingUp className="w-5 h-5 text-white" />}
-            iconColor="from-primary-500 to-primary-700"
+            iconColor="from-green-500 to-emerald-600"
             loading={loadingOverview}
           />
           <StatsCard
             title="Presión de Canales"
             value={channelPressure ? `${((channelPressure.used / channelPressure.total) * 100).toFixed(0)}%` : '0%'}
             icon={<Gauge className="w-5 h-5 text-white" />}
-            iconColor="from-accent-amber to-orange-600"
+            iconColor="from-orange-500 to-red-600"
             loading={loadingChannels}
             suffix={channelPressure ? `${channelPressure.used}/${channelPressure.total}` : ''}
           />
@@ -145,21 +141,23 @@ export default function DashboardPage() {
           />
 
           {/* Campaign leaderboard */}
-          <Card className="lg:col-span-2">
-            <CardHeader className="flex flex-row items-center justify-between">
+          <Card className="lg:col-span-2 flex flex-col">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
               <div className="flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-accent-amber" />
-                <h3 className="text-lg font-semibold text-white">Top Campañas</h3>
+                <div className="p-2 bg-yellow-100 dark:bg-yellow-500/20 rounded-lg">
+                  <Trophy className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                </div>
+                <h3 className="text-lg font-bold text-foreground">Top Campañas</h3>
               </div>
-              <Link href="/campaigns" className="text-sm text-primary-400 hover:text-primary-300">
-                Ver todas
+              <Link href="/campaigns" className="text-sm font-medium text-primary hover:text-primary/80 flex items-center gap-1 transition-colors">
+                Ver todas <ArrowRight className="w-4 h-4" />
               </Link>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1">
               {loadingLeaderboard ? (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-12 bg-dark-700/50 rounded-lg animate-pulse" />
+                    <div key={i} className="h-14 bg-muted/50 rounded-xl animate-pulse" />
                   ))}
                 </div>
               ) : leaderboard && leaderboard.length > 0 ? (
@@ -168,39 +166,38 @@ export default function DashboardPage() {
                     <Link
                       key={campaign.id}
                       href={`/campaigns/${campaign.id}`}
-                      className="flex items-center justify-between p-3 bg-dark-800/50 rounded-xl hover:bg-dark-700/50 transition-colors"
+                      className="group flex items-center justify-between p-3 bg-muted/30 hover:bg-muted/60 border border-transparent hover:border-border rounded-xl transition-all duration-200"
                     >
                       <div className="flex items-center gap-4">
                         <span
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
-                            index === 0
-                              ? 'bg-yellow-500/20 text-yellow-400'
-                              : index === 1
-                              ? 'bg-gray-400/20 text-gray-400'
-                              : index === 2
-                              ? 'bg-amber-700/20 text-amber-600'
-                              : 'bg-dark-700 text-dark-400'
-                          }`}
+                          className={cn(
+                            "w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shadow-sm",
+                            index === 0 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400' :
+                            index === 1 ? 'bg-slate-100 text-slate-700 dark:bg-slate-500/20 dark:text-slate-400' :
+                            index === 2 ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400' :
+                            'bg-muted text-muted-foreground'
+                          )}
                         >
-                          {index + 1}
+                          #{index + 1}
                         </span>
                         <div>
-                          <p className="font-medium text-white">{campaign.name}</p>
-                          <p className="text-xs text-dark-400">{campaign.total} contactos</p>
+                          <p className="font-semibold text-foreground group-hover:text-primary transition-colors">{campaign.name}</p>
+                          <p className="text-xs text-muted-foreground">{campaign.total} contactos</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold text-primary-400">
+                        <p className="font-bold text-lg text-primary">
                           {formatPercentage(campaign.successrate)}
                         </p>
-                        <p className="text-xs text-dark-400">{campaign.ok} exitosas</p>
+                        <p className="text-xs text-muted-foreground font-medium">{campaign.ok} exitosas</p>
                       </div>
                     </Link>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <p className="text-dark-400">No hay campañas para mostrar</p>
+                <div className="flex flex-col items-center justify-center h-48 text-center text-muted-foreground">
+                  <Trophy className="w-12 h-12 mb-3 opacity-20" />
+                  <p>No hay campañas para mostrar</p>
                 </div>
               )}
             </CardContent>
@@ -209,9 +206,9 @@ export default function DashboardPage() {
 
         {/* Recent campaigns */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <h3 className="text-lg font-semibold text-white">Campañas Recientes</h3>
-            <Link href="/campaigns" className="text-sm text-primary-400 hover:text-primary-300">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <h3 className="text-lg font-bold text-foreground">Campañas Recientes</h3>
+            <Link href="/campaigns" className="text-sm font-medium text-primary hover:text-primary/80 transition-colors">
               Ver todas
             </Link>
           </CardHeader>
@@ -222,22 +219,32 @@ export default function DashboardPage() {
                   <Link
                     key={campaign.id}
                     href={`/campaigns/${campaign.id}`}
-                    className="p-4 bg-dark-800/50 rounded-xl border border-dark-700/50 hover:border-primary-500/50 transition-colors"
+                    className="p-4 bg-card border border-border/50 rounded-xl hover:shadow-md hover:border-primary/30 transition-all duration-300 group"
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-white truncate">{campaign.name}</h4>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="p-2 bg-primary/10 rounded-lg text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                        <Megaphone className="w-4 h-4" />
+                      </div>
                       <StatusBadge status={campaign.status} />
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-dark-400">
-                      <span>{campaign.concurrentCalls} canales</span>
-                      <span>{campaign.maxRetries} reintentos</span>
+                    <h4 className="font-semibold text-foreground truncate mb-2">{campaign.name}</h4>
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Phone className="w-3 h-3" /> {campaign.concurrentCalls} canales
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Activity className="w-3 h-3" /> {campaign.maxRetries} reintentos
+                      </span>
                     </div>
                   </Link>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8">
-                <p className="text-dark-400">No hay campañas para mostrar</p>
+              <div className="text-center py-12 text-muted-foreground">
+                <p>No hay campañas creadas aún</p>
+                <Button variant="outline" className="mt-4" onClick={() => window.location.href = '/campaigns'}>
+                  Crear Campaña
+                </Button>
               </div>
             )}
           </CardContent>

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { amiApi } from '@/lib/api';
-import { Phone, MessageSquare, AlertCircle, CheckCircle } from 'lucide-react';
+import { Phone, MessageSquare, AlertCircle, CheckCircle, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function TestCallPage() {
@@ -65,30 +65,30 @@ export default function TestCallPage() {
       <div className="p-6">
         <div className="max-w-2xl mx-auto space-y-6">
           {/* Info card */}
-          <Card className="border-blue-500/30 bg-blue-500/5">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5" />
-                <div>
-                  <p className="text-blue-400 font-medium">Información</p>
-                  <p className="text-sm text-dark-300 mt-1">
-                    Esta herramienta permite probar el sistema de llamadas con texto a voz (TTS).
-                    La llamada se realizará a través del sistema Asterisk configurado.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-2xl border border-blue-100 dark:border-blue-900/30 bg-blue-50 dark:bg-blue-900/10 p-4 flex items-start gap-4 shadow-sm">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-full shrink-0">
+              <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-300">Información</h4>
+              <p className="text-sm text-blue-700 dark:text-blue-400/80 mt-1 leading-relaxed">
+                Esta herramienta permite probar el sistema de llamadas con texto a voz (TTS).
+                La llamada se realizará a través del sistema Asterisk configurado.
+              </p>
+            </div>
+          </div>
 
           {/* Form */}
-          <Card>
-            <CardHeader>
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Phone className="w-5 h-5 text-primary-400" />
-                Configurar Llamada de Prueba
+          <Card className="shadow-sm">
+            <CardHeader className="pb-4 border-b border-border/40">
+              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Phone className="w-5 h-5 text-primary" />
+                </div>
+                Configurar Llamada
               </h3>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-6 pt-6">
               <Input
                 label="Número de teléfono"
                 value={phone}
@@ -97,7 +97,7 @@ export default function TestCallPage() {
                 helperText="Ingresa el número sin espacios ni guiones"
               />
 
-              <div>
+              <div className="space-y-3">
                 <Textarea
                   label="Mensaje a reproducir"
                   value={message}
@@ -105,20 +105,24 @@ export default function TestCallPage() {
                   placeholder="Escribe el mensaje que será convertido a voz..."
                   rows={4}
                 />
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {presetMessages.map((preset) => (
-                    <button
-                      key={preset.label}
-                      onClick={() => setMessage(preset.text)}
-                      className="px-3 py-1.5 text-xs bg-dark-700 hover:bg-dark-600 text-dark-300 hover:text-white rounded-lg transition-colors"
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
+                
+                <div className="space-y-2">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider ml-1">Plantillas rápidas</span>
+                  <div className="flex flex-wrap gap-2">
+                    {presetMessages.map((preset) => (
+                      <button
+                        key={preset.label}
+                        onClick={() => setMessage(preset.text)}
+                        className="px-3 py-1.5 text-xs font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-lg transition-all border border-transparent hover:border-primary/20"
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <Button onClick={handleTestCall} isLoading={loading} className="w-full" size="lg">
+              <Button onClick={handleTestCall} isLoading={loading} className="w-full h-12 text-base shadow-md" size="lg">
                 <Phone className="w-4 h-4 mr-2" />
                 Iniciar Llamada de Prueba
               </Button>
@@ -127,60 +131,60 @@ export default function TestCallPage() {
 
           {/* Result */}
           {result && (
-            <Card
-              className={
-                result.success
-                  ? 'border-green-500/30 bg-green-500/5'
-                  : 'border-red-500/30 bg-red-500/5'
-              }
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3">
-                  {result.success ? (
-                    <CheckCircle className="w-5 h-5 text-green-400 mt-0.5" />
-                  ) : (
-                    <AlertCircle className="w-5 h-5 text-red-400 mt-0.5" />
-                  )}
-                  <div>
-                    <p className={`font-medium ${result.success ? 'text-green-400' : 'text-red-400'}`}>
-                      {result.success ? 'Llamada Iniciada' : 'Error'}
-                    </p>
-                    <p className="text-sm text-dark-300 mt-1">{result.message}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <div className={`rounded-2xl border p-4 flex items-start gap-4 shadow-sm animate-in slide-in-from-bottom-2 ${
+              result.success
+                ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-900/30'
+                : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30'
+            }`}>
+              <div className={`p-2 rounded-full shrink-0 ${
+                result.success ? 'bg-green-100 dark:bg-green-900/50' : 'bg-red-100 dark:bg-red-900/50'
+              }`}>
+                {result.success ? (
+                  <CheckCircle className={`w-5 h-5 ${result.success ? 'text-green-600 dark:text-green-400' : ''}`} />
+                ) : (
+                  <AlertCircle className={`w-5 h-5 ${!result.success ? 'text-red-600 dark:text-red-400' : ''}`} />
+                )}
+              </div>
+              <div>
+                <h4 className={`text-sm font-semibold ${
+                  result.success ? 'text-green-900 dark:text-green-300' : 'text-red-900 dark:text-red-300'
+                }`}>
+                  {result.success ? 'Llamada Iniciada' : 'Error'}
+                </h4>
+                <p className={`text-sm mt-1 ${
+                  result.success ? 'text-green-700 dark:text-green-400/80' : 'text-red-700 dark:text-red-400/80'
+                }`}>
+                  {result.message}
+                </p>
+              </div>
+            </div>
           )}
 
           {/* Tips */}
           <Card>
-            <CardHeader>
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-accent-cyan" />
+            <CardHeader className="pb-2">
+              <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-cyan-500" />
                 Consejos para mensajes TTS
               </h3>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-3 text-sm text-dark-300">
-                <li className="flex items-start gap-2">
-                  <span className="text-primary-400">•</span>
-                  Usa frases cortas y claras para mejor comprensión
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li className="flex items-start gap-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 mt-1.5 shrink-0" />
+                  <span>Usa frases cortas y claras para mejor comprensión del motor de voz.</span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary-400">•</span>
-                  Evita abreviaciones, escríbelas completas
+                <li className="flex items-start gap-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 mt-1.5 shrink-0" />
+                  <span>Evita abreviaciones complejas, es mejor escribirlas completas ("Doctor" en vez de "Dr.").</span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary-400">•</span>
-                  Los números se leen mejor separados (uno dos tres...)
+                <li className="flex items-start gap-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 mt-1.5 shrink-0" />
+                  <span>Los números largos se leen mejor si los separas con espacios o guiones.</span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary-400">•</span>
-                  Usa puntuación para controlar las pausas
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary-400">•</span>
-                  Prueba el mensaje antes de usarlo en campañas masivas
+                <li className="flex items-start gap-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 mt-1.5 shrink-0" />
+                  <span>Usa comas y puntos para controlar las pausas naturales de la voz.</span>
                 </li>
               </ul>
             </CardContent>

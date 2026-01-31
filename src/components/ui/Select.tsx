@@ -11,9 +11,9 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ className, label, error, options, ...props }, ref) => {
     return (
-      <div className="w-full">
+      <div className="w-full space-y-2">
         {label && (
-          <label className="block text-sm font-medium text-dark-300 mb-1.5">
+          <label className="block text-sm font-medium text-foreground ml-1">
             {label}
           </label>
         )}
@@ -21,23 +21,45 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
           <select
             ref={ref}
             className={cn(
-              'w-full px-4 py-2.5 bg-dark-800 border rounded-lg text-white appearance-none cursor-pointer',
-              'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent',
-              'transition-all duration-200',
-              error ? 'border-red-500' : 'border-dark-600 hover:border-dark-500',
+              // Layout Base (Igual que Input)
+              'flex h-11 w-full appearance-none rounded-xl border px-4 py-2 text-sm transition-all duration-200 cursor-pointer',
+              
+              // Colores Semánticos (Fondo, Borde, Texto)
+              'bg-background/80 border-input text-foreground',
+              
+              // Hover States
+              'hover:bg-accent/10 hover:border-primary/30',
+              
+              // Focus States
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ring-offset-background',
+              
+              // Error State
+              error 
+                ? 'border-destructive focus:ring-destructive/50 text-destructive' 
+                : '',
+              
               className
             )}
             {...props}
           >
             {options.map((option) => (
-              <option key={option.value} value={option.value}>
+              <option 
+                key={option.value} 
+                value={option.value}
+                className="bg-background text-foreground"
+              >
                 {option.label}
               </option>
             ))}
           </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400 pointer-events-none" />
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none opacity-70" />
         </div>
-        {error && <p className="mt-1.5 text-sm text-red-400">{error}</p>}
+        
+        {error && (
+          <p className="text-[0.8rem] font-medium text-destructive ml-1 animate-in slide-in-from-top-1 fade-in-0">
+            {error}
+          </p>
+        )}
       </div>
     );
   }

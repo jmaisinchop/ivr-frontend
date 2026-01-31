@@ -10,27 +10,57 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className, label, error, helperText, type = 'text', ...props }, ref) => {
     return (
-      <div className="w-full">
+      <div className="w-full space-y-2">
         {label && (
-          <label className="block text-sm font-medium text-dark-300 mb-1.5">
+          <label className="block text-sm font-medium text-foreground ml-1">
             {label}
           </label>
         )}
-        <input
-          ref={ref}
-          type={type}
-          className={cn(
-            'w-full px-4 py-2.5 bg-dark-800 border rounded-lg text-white placeholder-dark-500',
-            'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent',
-            'transition-all duration-200',
-            error ? 'border-red-500' : 'border-dark-600 hover:border-dark-500',
-            className
-          )}
-          {...props}
-        />
-        {error && <p className="mt-1.5 text-sm text-red-400">{error}</p>}
+        <div className="relative">
+          <input
+            ref={ref}
+            type={type}
+            className={cn(
+              // Layout & Base
+              'flex h-11 w-full rounded-xl border px-4 py-2 text-sm transition-all duration-200',
+              
+              // Colores (Light/Dark Mode automáticos)
+              // Fondo sutilmente transparente para mezclarse con glassmorphism si es necesario
+              'bg-background/80 border-input text-foreground placeholder:text-muted-foreground',
+              
+              // Hover States
+              'hover:bg-accent/10 hover:border-primary/30',
+              
+              // Focus States (Anillo estilo iOS)
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ring-offset-background',
+              
+              // File Inputs
+              'file:border-0 file:bg-transparent file:text-sm file:font-medium',
+              
+              // Error State
+              error 
+                ? 'border-destructive focus:ring-destructive/50 text-destructive placeholder:text-destructive/50' 
+                : '',
+              
+              // Disabled
+              'disabled:cursor-not-allowed disabled:opacity-50',
+              
+              className
+            )}
+            {...props}
+          />
+        </div>
+        
+        {error && (
+          <p className="text-[0.8rem] font-medium text-destructive ml-1 animate-in slide-in-from-top-1 fade-in-0">
+            {error}
+          </p>
+        )}
+        
         {helperText && !error && (
-          <p className="mt-1.5 text-sm text-dark-400">{helperText}</p>
+          <p className="text-[0.8rem] text-muted-foreground ml-1">
+            {helperText}
+          </p>
         )}
       </div>
     );

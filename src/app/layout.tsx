@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
-import { Toaster } from 'react-hot-toast';
+import { Inter } from 'next/font/google';
 import './globals.css';
+import { Toaster } from 'react-hot-toast';
+import { ThemeProvider } from '@/components/theme-provider'; // <--- IMPORTAR ESTO
+
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'IVR System - Panel de Control',
-  description: 'Sistema de gestión de campañas IVR y call center',
+  title: 'IVR System',
+  description: 'Plataforma de gestión de llamadas',
 };
 
 export default function RootLayout({
@@ -13,33 +17,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es">
-      <body>
-        {children}
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            style: {
-              background: '#1e293b',
-              color: '#e2e8f0',
-              border: '1px solid #334155',
-              borderRadius: '12px',
-            },
-            success: {
-              iconTheme: {
-                primary: '#22c55e',
-                secondary: '#fff',
-              },
-            },
-            error: {
-              iconTheme: {
-                primary: '#ef4444',
-                secondary: '#fff',
-              },
-            },
-          }}
-        />
+    <html lang="es" suppressHydrationWarning>
+      <body className={inter.className}>
+        {/* AGREGAR EL THEME PROVIDER AQUÍ */}
+        <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {children}
+            <Toaster position="top-right" />
+        </ThemeProvider>
       </body>
     </html>
   );

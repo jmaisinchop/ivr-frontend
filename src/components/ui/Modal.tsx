@@ -24,6 +24,7 @@ export function Modal({ isOpen, onClose, children, title, size = 'md', className
 
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
+      // Evita el scroll del body pero mantiene el ancho para evitar saltos de layout
       document.body.style.overflow = 'hidden';
     }
 
@@ -46,24 +47,29 @@ export function Modal({ isOpen, onClose, children, title, size = 'md', className
   const content = (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-[99] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm transition-opacity"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
     >
       <div
         className={cn(
-          'w-full bg-dark-800 border border-dark-700 rounded-2xl shadow-2xl animate-scale-in',
+          // Base styles
+          'relative w-full transform rounded-2xl shadow-2xl transition-all',
+          // Theme styles (iOS)
+          'bg-background border border-border/50 text-foreground',
+          // Animations (Simple fade/scale)
+          'animate-in fade-in zoom-in-95 duration-200',
           sizes[size],
           className
         )}
       >
         {title && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-dark-700">
-            <h2 className="text-lg font-semibold text-white">{title}</h2>
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border/40">
+            <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
             <button
               onClick={onClose}
-              className="p-1 text-dark-400 hover:text-white hover:bg-dark-700 rounded-lg transition-colors"
+              className="rounded-full p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
             >
               <X className="w-5 h-5" />
             </button>

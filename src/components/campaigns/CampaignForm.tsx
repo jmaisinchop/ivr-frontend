@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
 import { CreateCampaignDto } from '@/types';
 import { formatDateInput } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 interface CampaignFormProps {
   initialData?: Partial<CreateCampaignDto>;
@@ -116,21 +116,39 @@ export function CampaignForm({
         />
       </div>
 
-      <div className="flex items-center gap-3">
-        <input
-          type="checkbox"
-          id="retryOnAnswer"
-          checked={formData.retryOnAnswer}
-          onChange={(e) => setFormData({ ...formData, retryOnAnswer: e.target.checked })}
-          className="w-4 h-4 rounded border-dark-600 bg-dark-800 text-primary-600 focus:ring-primary-500"
-        />
-        <label htmlFor="retryOnAnswer" className="text-sm text-dark-300">
+      <div className="flex items-center gap-3 p-1">
+        <div className="relative flex items-center">
+          <input
+            type="checkbox"
+            id="retryOnAnswer"
+            checked={formData.retryOnAnswer}
+            onChange={(e) => setFormData({ ...formData, retryOnAnswer: e.target.checked })}
+            className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-input bg-background transition-all checked:border-primary checked:bg-primary hover:border-primary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
+          />
+          <svg
+            className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-primary-foreground opacity-0 peer-checked:opacity-100 transition-opacity"
+            width="12"
+            height="12"
+            viewBox="0 0 12 12"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M10 3L4.5 8.5L2 6"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+        <label htmlFor="retryOnAnswer" className="text-sm font-medium text-muted-foreground cursor-pointer select-none">
           Reintentar inmediatamente si no contestan
         </label>
       </div>
 
-      <div className="flex justify-end gap-3 pt-4 border-t border-dark-700">
-        <Button type="button" variant="ghost" onClick={onCancel}>
+      <div className="flex justify-end gap-3 pt-6 border-t border-border/50">
+        <Button type="button" variant="outline" onClick={onCancel} className="bg-background">
           Cancelar
         </Button>
         <Button type="submit" isLoading={isLoading}>

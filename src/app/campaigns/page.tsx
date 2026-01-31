@@ -1,46 +1,97 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
-import { CampaignCard } from '@/components/campaigns/CampaignCard';
 import { CampaignForm } from '@/components/campaigns/CampaignForm';
 import { useCampaignStore } from '@/stores/campaign.store';
-import { Campaign, CreateCampaignDto, CampaignStatus } from '@/types';
-import { Plus, Search, Filter } from 'lucide-react';
-import { PageLoading, SkeletonCard } from '@/components/ui/Spinner';
+import { CreateCampaignDto, Campaign } from '@/types';
+import { 
+  Plus, Search, Filter, MoreHorizontal, 
+  ArrowLeft, ArrowRight, Calendar, Phone, Activity 
+} from 'lucide-react';
+import { 
+  Table, TableHeader, TableBody, TableRow, TableCell 
+} from '@/components/ui/Table';
+import { StatusBadge } from '@/components/ui/Badge';
+import { formatDate } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { useDebounce } from '@/hooks/useDebounce';
+import { campaignsApi } from '@/lib/api'; // Asegúrate de que esto apunte a tu archivo api.ts actualizado
 import toast from 'react-hot-toast';
-import { formatDateInput } from '@/lib/utils';
+import Link from 'next/link';
 
 export default function CampaignsPage() {
-  const { campaigns, fetchCampaigns, createCampaign, duplicateCampaign, isLoading, error } = useCampaignStore();
+  const { createCampaign, duplicateCampaign } = useCampaignStore();
+
+  // --- Estados de Filtros y Paginación ---
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 500); // Espera 500ms al escribir
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10); // Límite fijo o podrías hacerlo dinámico
+
+  // --- Estados de Datos ---
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [meta, setMeta] = useState({ total: 0, lastPage: 1 });
+  const [isLoading, setIsLoading] = useState(true);
+
+  // --- Estados de Modales ---
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [campaignToDuplicate, setCampaignToDuplicate] = useState<Campaign | null>(null);
   const [creating, setCreating] = useState(false);
 
+  // --- Función para cargar datos desde el Backend ---
+  const fetchCampaigns = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // Llamamos a la API con los parámetros de filtro
+      const response = await campaignsApi.getAll({
+        page,
+        limit,
+        search: debouncedSearch,
+        status: statusFilter,
+      });
+
+      // Axios devuelve la respuesta en .data, y tu backend devuelve { data: [], meta: {} }
+      const { data, meta } = response.data;
+
+      if (data) {
+        setCampaigns(data);
+        setMeta(meta);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('Error al cargar el listado de campañas');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [page, limit, debouncedSearch, statusFilter]);
+
+  // Recargar cuando cambian los filtros (page, search, status)
   useEffect(() => {
     fetchCampaigns();
   }, [fetchCampaigns]);
 
-  const filteredCampaigns = campaigns.filter((campaign) => {
-    const matchesSearch = campaign.name.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'ALL' || campaign.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  // Resetear a página 1 cuando se cambia el texto de búsqueda o el filtro de estado
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter]);
+
+  // --- Manejadores de Acciones ---
 
   const handleCreate = async (data: CreateCampaignDto) => {
     setCreating(true);
     try {
-      const campaign = await createCampaign(data);
+      await createCampaign(data);
       toast.success('Campaña creada exitosamente');
       setShowCreateModal(false);
+      fetchCampaigns(); // Recargar tabla para ver la nueva campaña
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -48,19 +99,14 @@ export default function CampaignsPage() {
     }
   };
 
-  const handleDuplicateClick = (campaign: Campaign) => {
-    setCampaignToDuplicate(campaign);
-    setShowDuplicateModal(true);
-  };
-
   const handleDuplicate = async (data: CreateCampaignDto) => {
     if (!campaignToDuplicate) return;
     setCreating(true);
     try {
       await duplicateCampaign(campaignToDuplicate.id, data);
-      toast.success('Campaña duplicada exitosamente');
+      toast.success('Campaña duplicada correctamente');
       setShowDuplicateModal(false);
-      setCampaignToDuplicate(null);
+      fetchCampaigns(); // Recargar tabla
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -77,102 +123,174 @@ export default function CampaignsPage() {
     { value: 'CANCELLED', label: 'Canceladas' },
   ];
 
-  const counts = {
-    total: campaigns.length,
-    running: campaigns.filter((c) => c.status === 'RUNNING').length,
-    paused: campaigns.filter((c) => c.status === 'PAUSED').length,
-    scheduled: campaigns.filter((c) => c.status === 'SCHEDULED').length,
-  };
-
   return (
     <DashboardLayout>
-      <Header title="Campañas" subtitle="Gestiona tus campañas de llamadas IVR" />
+      <Header title="Campañas" subtitle="Gestiona y monitorea tus campañas de llamadas" />
 
       <div className="p-6 space-y-6">
-        {/* Stats row */}
-        <div className="grid grid-cols-4 gap-4">
-          <div className="bg-dark-800/50 border border-dark-700/50 rounded-xl p-4">
-            <p className="text-3xl font-bold text-white">{counts.total}</p>
-            <p className="text-sm text-dark-400">Total</p>
-          </div>
-          <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
-            <p className="text-3xl font-bold text-green-400">{counts.running}</p>
-            <p className="text-sm text-dark-400">En ejecución</p>
-          </div>
-          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
-            <p className="text-3xl font-bold text-yellow-400">{counts.paused}</p>
-            <p className="text-sm text-dark-400">Pausadas</p>
-          </div>
-          <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
-            <p className="text-3xl font-bold text-blue-400">{counts.scheduled}</p>
-            <p className="text-sm text-dark-400">Programadas</p>
-          </div>
-        </div>
-
-        {/* Actions bar */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4 flex-1">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500" />
+        
+        {/* --- Barra de Filtros y Acciones --- */}
+        <div className="flex flex-col md:flex-row justify-between gap-4 bg-card p-4 rounded-xl border border-border/50 shadow-sm">
+          <div className="flex flex-col sm:flex-row gap-3 flex-1">
+            {/* Buscador */}
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar campañas..."
+                placeholder="Buscar por nombre..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
+                className="pl-9"
               />
             </div>
+            {/* Filtro de Estado */}
             <Select
               options={statusOptions}
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-48"
+              className="w-full sm:w-48"
             />
           </div>
-          <Button onClick={() => setShowCreateModal(true)}>
+          {/* Botón Crear */}
+          <Button onClick={() => setShowCreateModal(true)} className="shadow-sm">
             <Plus className="w-4 h-4 mr-2" />
             Nueva Campaña
           </Button>
         </div>
 
-        {/* Campaigns grid */}
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <SkeletonCard key={i} />
-            ))}
-          </div>
-        ) : filteredCampaigns.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-dark-800 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Filter className="w-8 h-8 text-dark-500" />
+        {/* --- Tabla de Datos --- */}
+        <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent bg-muted/30">
+                <TableCell header className="w-[300px]">Nombre</TableCell>
+                <TableCell header>Estado</TableCell>
+                <TableCell header>Configuración</TableCell>
+                <TableCell header>Fechas</TableCell>
+                <TableCell header className="text-right">Acciones</TableCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                // Skeleton Loading Rows (Efecto de carga)
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                  </TableRow>
+                ))
+              ) : campaigns.length === 0 ? (
+                // Estado Vacío
+                <TableRow>
+                  <TableCell colSpan={5} className="h-64 text-center">
+                    <div className="flex flex-col items-center justify-center text-muted-foreground">
+                      <Filter className="w-12 h-12 mb-3 opacity-20" />
+                      <p className="text-lg font-medium">No se encontraron campañas</p>
+                      <p className="text-sm">Intenta ajustar los filtros de búsqueda</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                // Filas de Datos
+                campaigns.map((camp) => (
+                  <TableRow key={camp.id} className="group hover:bg-muted/30 transition-colors">
+                    <TableCell>
+                      <Link href={`/campaigns/${camp.id}`} className="block">
+                        <span className="font-semibold text-foreground hover:text-primary transition-colors">
+                          {camp.name}
+                        </span>
+                        <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                          ID: <span className="font-mono text-[10px]">{camp.id.split('-')[0]}...</span>
+                        </div>
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={camp.status} />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Phone className="w-3 h-3" /> {camp.concurrentCalls} canales
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Activity className="w-3 h-3" /> {camp.maxRetries} reintentos
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1 text-sm">
+                        <span className="flex items-center gap-1.5 text-foreground">
+                          <Calendar className="w-3.5 h-3.5 text-primary" /> 
+                          {formatDate(camp.startDate, { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' })}
+                        </span>
+                        <span className="text-xs text-muted-foreground ml-5">
+                          hasta {formatDate(camp.endDate, { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' })}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          onClick={() => {
+                            setCampaignToDuplicate(camp);
+                            setShowDuplicateModal(true);
+                          }}
+                          title="Duplicar"
+                        >
+                          <span className="sr-only">Duplicar</span>
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                        <Link href={`/campaigns/${camp.id}`}>
+                          <Button size="sm" variant="secondary">
+                            Ver Detalle
+                          </Button>
+                        </Link>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+
+          {/* --- Paginación --- */}
+          <div className="flex items-center justify-between px-4 py-4 border-t border-border/50 bg-muted/10">
+            <div className="text-sm text-muted-foreground">
+              Mostrando página <span className="font-medium text-foreground">{page}</span> de <span className="font-medium text-foreground">{meta.lastPage}</span>
+              <span className="mx-2 text-border">|</span>
+              Total: {meta.total} campañas
             </div>
-            <h3 className="text-lg font-medium text-white mb-2">No hay campañas</h3>
-            <p className="text-dark-400 mb-4">
-              {search || statusFilter !== 'ALL'
-                ? 'No se encontraron campañas con los filtros aplicados'
-                : 'Crea tu primera campaña para comenzar'}
-            </p>
-            {!search && statusFilter === 'ALL' && (
-              <Button onClick={() => setShowCreateModal(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Crear Campaña
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1 || isLoading}
+                className="bg-background"
+              >
+                <ArrowLeft className="w-4 h-4 mr-1" /> Anterior
               </Button>
-            )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.min(meta.lastPage, p + 1))}
+                disabled={page >= meta.lastPage || isLoading}
+                className="bg-background"
+              >
+                Siguiente <ArrowRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCampaigns.map((campaign) => (
-              <CampaignCard
-                key={campaign.id}
-                campaign={campaign}
-                onDuplicate={handleDuplicateClick}
-              />
-            ))}
-          </div>
-        )}
+        </div>
       </div>
 
-      {/* Create Modal */}
+      {/* --- Modales --- */}
+      
+      {/* Modal Crear */}
       <Modal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
@@ -186,7 +304,7 @@ export default function CampaignsPage() {
         />
       </Modal>
 
-      {/* Duplicate Modal */}
+      {/* Modal Duplicar */}
       <Modal
         isOpen={showDuplicateModal}
         onClose={() => {

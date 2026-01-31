@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Header } from '@/components/layout/Header';
-import { Card, CardHeader, CardContent } from '@/components/ui/Card';
+import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -13,12 +13,13 @@ import { RoleBadge } from '@/components/ui/Badge';
 import { usersApi, channelLimitsApi } from '@/lib/api';
 import { User, UserRole, ChannelLimit } from '@/types';
 import { useAuthStore } from '@/stores/auth.store';
-import { Plus, Edit2, Key, Search, Users, Shield, Phone } from 'lucide-react';
+import { Plus, Edit2, Key, Search, Users, Shield, Phone, Check, X } from 'lucide-react';
 import { PageLoading } from '@/components/ui/Spinner';
+import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
 export default function UsersPage() {
-  const { user: currentUser, isAdmin, isSupervisor } = useAuthStore();
+  const { user: currentUser, isAdmin } = useAuthStore();
   const [users, setUsers] = useState<User[]>([]);
   const [channelLimits, setChannelLimits] = useState<ChannelLimit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -190,60 +191,60 @@ export default function UsersPage() {
       <Header title="Usuarios" subtitle="Gestión de usuarios del sistema" />
 
       <div className="p-6 space-y-6">
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-4 flex items-center gap-4">
-              <div className="w-12 h-12 bg-primary-500/20 rounded-xl flex items-center justify-center">
-                <Users className="w-6 h-6 text-primary-400" />
+              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+                <Users className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">{users.length}</p>
-                <p className="text-sm text-dark-400">Total usuarios</p>
+                <p className="text-2xl font-bold text-foreground">{users.length}</p>
+                <p className="text-sm text-muted-foreground">Total usuarios</p>
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-4">
-              <div className="w-12 h-12 bg-accent-violet/20 rounded-xl flex items-center justify-center">
-                <Shield className="w-6 h-6 text-accent-violet" />
+              <div className="w-12 h-12 bg-indigo-500/10 rounded-xl flex items-center justify-center">
+                <Shield className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-2xl font-bold text-foreground">
                   {users.filter((u) => u.role === UserRole.ADMIN || u.role === UserRole.SUPERVISOR).length}
                 </p>
-                <p className="text-sm text-dark-400">Administradores</p>
+                <p className="text-sm text-muted-foreground">Administradores</p>
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-4">
-              <div className="w-12 h-12 bg-accent-cyan/20 rounded-xl flex items-center justify-center">
-                <Phone className="w-6 h-6 text-accent-cyan" />
+              <div className="w-12 h-12 bg-cyan-500/10 rounded-xl flex items-center justify-center">
+                <Phone className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-2xl font-bold text-foreground">
                   {users.filter((u) => u.canAccessIvrs).length}
                 </p>
-                <p className="text-sm text-dark-400">Con acceso IVR</p>
+                <p className="text-sm text-muted-foreground">Con acceso IVR</p>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center justify-between">
-          <div className="relative w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500" />
+        {/* Actions & Search */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-card/50 p-4 rounded-xl border border-border/50">
+          <div className="relative w-full sm:w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Buscar usuarios..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
+              className="pl-9 h-10 bg-background"
             />
           </div>
           {isAdmin() && (
-            <Button onClick={() => setShowCreateModal(true)}>
+            <Button onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto">
               <Plus className="w-4 h-4 mr-2" />
               Nuevo Usuario
             </Button>
@@ -251,57 +252,68 @@ export default function UsersPage() {
         </div>
 
         {/* Table */}
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableCell header>Usuario</TableCell>
-                  <TableCell header>Email</TableCell>
-                  <TableCell header>Rol</TableCell>
-                  <TableCell header>Canales</TableCell>
-                  <TableCell header>IVR</TableCell>
-                  <TableCell header>Acciones</TableCell>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium text-white">{user.firstName} {user.lastName}</p>
-                        <p className="text-xs text-dark-400">@{user.username}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell><RoleBadge role={user.role} /></TableCell>
-                    <TableCell>
-                      <span className="text-primary-400 font-medium">{getChannelLimit(user.id)}</span>
-                    </TableCell>
-                    <TableCell>
-                      <span className={user.canAccessIvrs ? 'text-green-400' : 'text-red-400'}>
-                        {user.canAccessIvrs ? 'Sí' : 'No'}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" variant="ghost" onClick={() => openEditModal(user)}>
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => { setSelectedUser(user); setShowPasswordModal(true); }}>
-                          <Key className="w-4 h-4" />
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => openChannelModal(user)}>
-                          <Phone className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <Table className="shadow-sm">
+          <TableHeader>
+            <TableRow>
+              <TableCell header>Usuario</TableCell>
+              <TableCell header>Email</TableCell>
+              <TableCell header>Rol</TableCell>
+              <TableCell header>Canales</TableCell>
+              <TableCell header>IVR</TableCell>
+              <TableCell header>Acciones</TableCell>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredUsers.map((user) => (
+              <TableRow key={user.id}>
+                <TableCell>
+                  <div>
+                    <p className="font-medium text-foreground">{user.firstName} {user.lastName}</p>
+                    <p className="text-xs text-muted-foreground">@{user.username}</p>
+                  </div>
+                </TableCell>
+                <TableCell className="text-muted-foreground">{user.email}</TableCell>
+                <TableCell><RoleBadge role={user.role} /></TableCell>
+                <TableCell>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">
+                    {getChannelLimit(user.id)} canales
+                  </span>
+                </TableCell>
+                <TableCell>
+                  {user.canAccessIvrs ? (
+                    <span className="inline-flex items-center text-xs font-medium text-green-600 dark:text-green-400">
+                      <Check className="w-3.5 h-3.5 mr-1" /> Permitido
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center text-xs font-medium text-muted-foreground">
+                      <X className="w-3.5 h-3.5 mr-1" /> Sin acceso
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    <Button size="icon" variant="ghost" onClick={() => openEditModal(user)} title="Editar">
+                      <Edit2 className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                    </Button>
+                    <Button size="icon" variant="ghost" onClick={() => { setSelectedUser(user); setShowPasswordModal(true); }} title="Cambiar Contraseña">
+                      <Key className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                    </Button>
+                    <Button size="icon" variant="ghost" onClick={() => openChannelModal(user)} title="Asignar Canales">
+                      <Phone className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+            {filteredUsers.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  No se encontraron usuarios
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
 
       {/* Create Modal */}
@@ -316,12 +328,23 @@ export default function UsersPage() {
           <Input label="Contraseña" type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} />
           <Select label="Rol" options={roleOptions} value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })} />
           <Input label="Extensión" value={formData.extension} onChange={(e) => setFormData({ ...formData, extension: e.target.value })} />
-          <div className="flex items-center gap-3">
-            <input type="checkbox" id="canAccessIvrs" checked={formData.canAccessIvrs} onChange={(e) => setFormData({ ...formData, canAccessIvrs: e.target.checked })} className="w-4 h-4 rounded" />
-            <label htmlFor="canAccessIvrs" className="text-sm text-dark-300">Acceso a IVR</label>
+          
+          <div className="flex items-center gap-3 p-1">
+            <div className="relative flex items-center">
+              <input 
+                type="checkbox" 
+                id="canAccessIvrs" 
+                checked={formData.canAccessIvrs} 
+                onChange={(e) => setFormData({ ...formData, canAccessIvrs: e.target.checked })} 
+                className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-input bg-background transition-all checked:border-primary checked:bg-primary hover:border-primary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
+              />
+              <Check className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-primary-foreground opacity-0 peer-checked:opacity-100 w-3.5 h-3.5" strokeWidth={3} />
+            </div>
+            <label htmlFor="canAccessIvrs" className="text-sm font-medium text-foreground cursor-pointer select-none">Acceso a campañas IVR</label>
           </div>
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="ghost" onClick={() => setShowCreateModal(false)}>Cancelar</Button>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-border/50">
+            <Button variant="outline" onClick={() => setShowCreateModal(false)} className="bg-background">Cancelar</Button>
             <Button onClick={handleCreate} isLoading={submitting}>Crear</Button>
           </div>
         </div>
@@ -337,12 +360,23 @@ export default function UsersPage() {
           <Input label="Email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
           <Select label="Rol" options={roleOptions} value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })} />
           <Input label="Extensión" value={formData.extension} onChange={(e) => setFormData({ ...formData, extension: e.target.value })} />
-          <div className="flex items-center gap-3">
-            <input type="checkbox" id="canAccessIvrsEdit" checked={formData.canAccessIvrs} onChange={(e) => setFormData({ ...formData, canAccessIvrs: e.target.checked })} className="w-4 h-4 rounded" />
-            <label htmlFor="canAccessIvrsEdit" className="text-sm text-dark-300">Acceso a IVR</label>
+          
+          <div className="flex items-center gap-3 p-1">
+            <div className="relative flex items-center">
+              <input 
+                type="checkbox" 
+                id="canAccessIvrsEdit" 
+                checked={formData.canAccessIvrs} 
+                onChange={(e) => setFormData({ ...formData, canAccessIvrs: e.target.checked })} 
+                className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-input bg-background transition-all checked:border-primary checked:bg-primary hover:border-primary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
+              />
+              <Check className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-primary-foreground opacity-0 peer-checked:opacity-100 w-3.5 h-3.5" strokeWidth={3} />
+            </div>
+            <label htmlFor="canAccessIvrsEdit" className="text-sm font-medium text-foreground cursor-pointer select-none">Acceso a campañas IVR</label>
           </div>
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="ghost" onClick={() => setShowEditModal(false)}>Cancelar</Button>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-border/50">
+            <Button variant="outline" onClick={() => setShowEditModal(false)} className="bg-background">Cancelar</Button>
             <Button onClick={handleEdit} isLoading={submitting}>Guardar</Button>
           </div>
         </div>
@@ -351,10 +385,12 @@ export default function UsersPage() {
       {/* Password Modal */}
       <Modal isOpen={showPasswordModal} onClose={() => setShowPasswordModal(false)} title="Cambiar Contraseña" size="sm">
         <div className="space-y-4">
-          <p className="text-dark-400">Cambiar contraseña de <strong className="text-white">{selectedUser?.username}</strong></p>
+          <p className="text-muted-foreground text-sm">
+            Estás cambiando la contraseña para el usuario <strong className="text-foreground">{selectedUser?.username}</strong>
+          </p>
           <Input label="Nueva contraseña" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="ghost" onClick={() => setShowPasswordModal(false)}>Cancelar</Button>
+          <div className="flex justify-end gap-3 pt-4 border-t border-border/50">
+            <Button variant="outline" onClick={() => setShowPasswordModal(false)} className="bg-background">Cancelar</Button>
             <Button onClick={handleChangePassword} isLoading={submitting}>Cambiar</Button>
           </div>
         </div>
@@ -363,10 +399,12 @@ export default function UsersPage() {
       {/* Channel Modal */}
       <Modal isOpen={showChannelModal} onClose={() => setShowChannelModal(false)} title="Asignar Canales" size="sm">
         <div className="space-y-4">
-          <p className="text-dark-400">Asignar canales a <strong className="text-white">{selectedUser?.username}</strong></p>
+          <p className="text-muted-foreground text-sm">
+            Asignar límite de canales simultáneos para <strong className="text-foreground">{selectedUser?.username}</strong>
+          </p>
           <Input label="Máximo de canales" type="number" min={0} value={newChannelLimit} onChange={(e) => setNewChannelLimit(parseInt(e.target.value) || 0)} />
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="ghost" onClick={() => setShowChannelModal(false)}>Cancelar</Button>
+          <div className="flex justify-end gap-3 pt-4 border-t border-border/50">
+            <Button variant="outline" onClick={() => setShowChannelModal(false)} className="bg-background">Cancelar</Button>
             <Button onClick={handleAssignChannels} isLoading={submitting}>Asignar</Button>
           </div>
         </div>

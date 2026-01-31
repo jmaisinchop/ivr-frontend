@@ -9,7 +9,8 @@ import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { campaignsApi } from '@/lib/api';
 import { useDashboardUpdates } from '@/hooks/useSocket';
-import { Phone, Eye, RefreshCw, ChevronLeft, ChevronRight, EyeOff, Headphones } from 'lucide-react';
+import { Phone, Eye, RefreshCw, ChevronLeft, ChevronRight, EyeOff, Headphones, Users, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
 interface ContactsTableProps {
@@ -54,7 +55,6 @@ export function ContactsTable({ campaignId, onSpy }: ContactsTableProps) {
     useCallback(
       (update) => {
         if (update.campaignId === campaignId && update.event === 'call-finished' && autoRefreshEnabled) {
-          console.log('🔄 Auto-refresh activado por evento WebSocket');
           fetchContacts();
           
           // Si la llamada espiada terminó, resetear estado
@@ -76,7 +76,6 @@ export function ContactsTable({ campaignId, onSpy }: ContactsTableProps) {
     }
 
     const interval = setInterval(() => {
-      console.log('🔄 Polling de respaldo activado');
       fetchContacts();
     }, 30000);
 
@@ -120,81 +119,112 @@ export function ContactsTable({ campaignId, onSpy }: ContactsTableProps) {
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Banner de espionaje activo */}
       {spyingContactId && (
-        <div className="bg-purple-500/20 border border-purple-500/30 rounded-lg p-4 flex items-center justify-between animate-slide-down">
-          <div className="flex items-center gap-3">
-            <Headphones className="w-5 h-5 text-purple-400 animate-pulse" />
+        <div className="bg-purple-100/80 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/30 rounded-2xl p-4 flex items-center justify-between animate-in slide-in-from-top-2 backdrop-blur-sm shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="p-2 bg-purple-200 dark:bg-purple-500/20 rounded-full animate-pulse">
+              <Headphones className="w-5 h-5 text-purple-700 dark:text-purple-400" />
+            </div>
             <div>
-              <p className="text-sm font-medium text-purple-400">
-                🎧 Espionaje activo
+              <p className="text-sm font-bold text-purple-900 dark:text-purple-300">
+                Monitorización Activa
               </p>
-              <p className="text-xs text-purple-500">
-                Estás escuchando una llamada en curso
+              <p className="text-xs text-purple-700 dark:text-purple-400">
+                Estás escuchando una llamada en curso en tiempo real.
               </p>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleStopSpy}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleStopSpy}
+            className="border-purple-300 dark:border-purple-500/50 hover:bg-purple-200 dark:hover:bg-purple-500/20 text-purple-900 dark:text-purple-200"
+          >
             <EyeOff className="w-4 h-4 mr-2" />
             Finalizar
           </Button>
         </div>
       )}
 
-      {/* Stats bar */}
+      {/* Stats bar - Diseño iOS Cards */}
       {data && (
-        <div className="grid grid-cols-5 gap-4">
-          <div className="bg-dark-800/50 rounded-xl p-4 text-center">
-            <p className="text-2xl font-bold text-white">{data.total}</p>
-            <p className="text-xs text-dark-400">Total</p>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="bg-card border border-border/50 rounded-xl p-4 flex flex-col items-center justify-center shadow-sm">
+            <div className="p-2 bg-secondary rounded-full mb-2">
+              <Users className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <p className="text-2xl font-bold text-foreground">{data.total}</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total</p>
           </div>
-          <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4 text-center relative">
-            <p className="text-2xl font-bold text-cyan-400">{data.calling}</p>
-            <p className="text-xs text-dark-400">Llamando</p>
-            {data.calling > 0 && (
-              <div className="absolute top-2 right-2">
-                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
-              </div>
-            )}
+          
+          <div className="bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-100 dark:border-cyan-800/30 rounded-xl p-4 flex flex-col items-center justify-center relative overflow-hidden">
+            {data.calling > 0 && <div className="absolute top-2 right-2 w-2 h-2 bg-cyan-500 rounded-full animate-pulse" />}
+            <div className="p-2 bg-cyan-100 dark:bg-cyan-900/40 rounded-full mb-2">
+              <Phone className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+            </div>
+            <p className="text-2xl font-bold text-cyan-700 dark:text-cyan-400">{data.calling}</p>
+            <p className="text-xs font-medium text-cyan-600/70 dark:text-cyan-500 uppercase tracking-wider">Llamando</p>
           </div>
-          <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-center">
-            <p className="text-2xl font-bold text-green-400">{data.success}</p>
-            <p className="text-xs text-dark-400">Exitosas</p>
+          
+          <div className="bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-800/30 rounded-xl p-4 flex flex-col items-center justify-center">
+            <div className="p-2 bg-green-100 dark:bg-green-900/40 rounded-full mb-2">
+              <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
+            </div>
+            <p className="text-2xl font-bold text-green-700 dark:text-green-400">{data.success}</p>
+            <p className="text-xs font-medium text-green-600/70 dark:text-green-500 uppercase tracking-wider">Exitosas</p>
           </div>
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center">
-            <p className="text-2xl font-bold text-red-400">{data.failed}</p>
-            <p className="text-xs text-dark-400">Fallidas</p>
+          
+          <div className="bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-800/30 rounded-xl p-4 flex flex-col items-center justify-center">
+            <div className="p-2 bg-red-100 dark:bg-red-900/40 rounded-full mb-2">
+              <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+            </div>
+            <p className="text-2xl font-bold text-red-700 dark:text-red-400">{data.failed}</p>
+            <p className="text-xs font-medium text-red-600/70 dark:text-red-500 uppercase tracking-wider">Fallidas</p>
           </div>
-          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-center">
-            <p className="text-2xl font-bold text-yellow-400">{data.pending}</p>
-            <p className="text-xs text-dark-400">Pendientes</p>
+          
+          <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-800/30 rounded-xl p-4 flex flex-col items-center justify-center">
+            <div className="p-2 bg-amber-100 dark:bg-amber-900/40 rounded-full mb-2">
+              <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            </div>
+            <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{data.pending}</p>
+            <p className="text-xs font-medium text-amber-600/70 dark:text-amber-500 uppercase tracking-wider">Pendientes</p>
           </div>
         </div>
       )}
 
       {/* Filters */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-card/50 p-4 rounded-xl border border-border/50">
         <Select
           options={statusOptions}
           value={status}
           onChange={(e) => handleStatusChange(e.target.value)}
-          className="w-48"
+          className="w-full sm:w-56"
         />
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
           {/* Toggle Auto-Refresh */}
-          <label className="flex items-center gap-2 text-sm text-dark-400 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={autoRefreshEnabled}
-              onChange={(e) => setAutoRefreshEnabled(e.target.checked)}
-              className="w-4 h-4 rounded border-dark-600 bg-dark-800 text-primary-600 focus:ring-primary-500"
-            />
+          <label className="flex items-center gap-2 text-sm font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors">
+            <div className={cn(
+              "w-9 h-5 rounded-full relative transition-colors duration-300",
+              autoRefreshEnabled ? "bg-primary" : "bg-input"
+            )}>
+              <input
+                type="checkbox"
+                checked={autoRefreshEnabled}
+                onChange={(e) => setAutoRefreshEnabled(e.target.checked)}
+                className="sr-only"
+              />
+              <div className={cn(
+                "w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-transform duration-300 shadow-sm",
+                autoRefreshEnabled ? "left-[calc(100%-16px)]" : "left-0.5"
+              )} />
+            </div>
             <span>Auto-actualizar</span>
           </label>
 
-          <Button variant="ghost" onClick={fetchContacts} disabled={loading}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          <Button variant="outline" size="sm" onClick={fetchContacts} disabled={loading} className="bg-background">
+            <RefreshCw className={`w-3.5 h-3.5 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Actualizar
           </Button>
         </div>
@@ -202,11 +232,11 @@ export function ContactsTable({ campaignId, onSpy }: ContactsTableProps) {
 
       {/* Table */}
       {loading ? (
-        <div className="flex justify-center py-12">
+        <div className="flex justify-center py-20">
           <Spinner size="lg" />
         </div>
       ) : (
-        <Table>
+        <Table className="shadow-sm">
           <TableHeader>
             <TableRow>
               <TableCell header>Nombre</TableCell>
@@ -221,22 +251,29 @@ export function ContactsTable({ campaignId, onSpy }: ContactsTableProps) {
             {data?.rows.map((contact) => (
               <TableRow 
                 key={contact.id}
-                className={spyingContactId === contact.id ? 'bg-purple-500/10 border-l-2 border-purple-500' : ''}
+                className={cn(
+                  "group",
+                  spyingContactId === contact.id && "bg-purple-50/80 dark:bg-purple-500/10 border-l-4 border-l-purple-500"
+                )}
               >
-                <TableCell className="font-medium text-white">
+                <TableCell className="font-semibold text-foreground">
                   {contact.name}
                   {spyingContactId === contact.id && (
-                    <span className="ml-2 text-xs text-purple-400">
-                      🎧 Espiando
+                    <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 animate-pulse">
+                      ESPIANDO
                     </span>
                   )}
                 </TableCell>
-                <TableCell>{contact.phone}</TableCell>
+                <TableCell className="text-muted-foreground font-mono text-xs">{contact.phone}</TableCell>
                 <TableCell>
                   <StatusBadge status={contact.callStatus} />
                 </TableCell>
-                <TableCell>{contact.attemptCount}</TableCell>
-                <TableCell className="text-dark-400 max-w-[200px] truncate">
+                <TableCell>
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-secondary text-xs font-medium">
+                    {contact.attemptCount}
+                  </span>
+                </TableCell>
+                <TableCell className="text-muted-foreground text-xs max-w-[150px] truncate">
                   {contact.hangupCause || '-'}
                 </TableCell>
                 <TableCell>
@@ -247,10 +284,10 @@ export function ContactsTable({ campaignId, onSpy }: ContactsTableProps) {
                           size="sm" 
                           variant="ghost" 
                           onClick={handleStopSpy}
-                          className="text-purple-400 hover:text-purple-300"
+                          className="text-purple-600 hover:text-purple-700 hover:bg-purple-100 dark:text-purple-400 dark:hover:bg-purple-500/20 h-8"
                         >
-                          <EyeOff className="w-4 h-4 mr-1" />
-                          Dejar de espiar
+                          <EyeOff className="w-3.5 h-3.5 mr-1.5" />
+                          <span className="text-xs">Parar</span>
                         </Button>
                       ) : (
                         <Button 
@@ -258,9 +295,10 @@ export function ContactsTable({ campaignId, onSpy }: ContactsTableProps) {
                           variant="ghost" 
                           onClick={() => handleSpy(contact.id)}
                           disabled={spyingInProgress || spyingContactId !== null}
+                          className="text-muted-foreground hover:text-primary hover:bg-primary/10 h-8"
                         >
-                          <Eye className="w-4 h-4 mr-1" />
-                          Espiar
+                          <Eye className="w-3.5 h-3.5 mr-1.5" />
+                          <span className="text-xs">Espiar</span>
                         </Button>
                       )}
                     </>
@@ -268,29 +306,38 @@ export function ContactsTable({ campaignId, onSpy }: ContactsTableProps) {
                 </TableCell>
               </TableRow>
             ))}
+            {data?.rows.length === 0 && (
+              <TableRow>
+                <TableCell className="text-center py-12 text-muted-foreground" colSpan={6}>
+                  No se encontraron contactos en esta categoría
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       )}
 
       {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-dark-400">
-          Página {page + 1} de {totalPages}
+      <div className="flex items-center justify-between px-2">
+        <p className="text-sm text-muted-foreground">
+          Página <span className="font-medium text-foreground">{page + 1}</span> de <span className="font-medium text-foreground">{totalPages}</span>
         </p>
         <div className="flex items-center gap-2">
           <Button
-            variant="ghost"
-            size="sm"
+            variant="outline"
+            size="icon"
             onClick={() => setPage((p) => Math.max(0, p - 1))}
             disabled={page === 0}
+            className="h-8 w-8"
           >
             <ChevronLeft className="w-4 h-4" />
           </Button>
           <Button
-            variant="ghost"
-            size="sm"
+            variant="outline"
+            size="icon"
             onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
             disabled={page >= totalPages - 1}
+            className="h-8 w-8"
           >
             <ChevronRight className="w-4 h-4" />
           </Button>
@@ -299,9 +346,9 @@ export function ContactsTable({ campaignId, onSpy }: ContactsTableProps) {
 
       {/* Status indicator */}
       {autoRefreshEnabled && data && data.calling > 0 && (
-        <div className="flex items-center gap-2 text-sm text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 rounded-lg px-3 py-2">
-          <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
-          <span>Actualizando automáticamente - {data.calling} llamada(s) activa(s)</span>
+        <div className="flex items-center justify-center gap-2 text-xs text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/10 border border-cyan-100 dark:border-cyan-800/20 rounded-full px-4 py-1.5 mx-auto w-fit animate-in fade-in slide-in-from-bottom-2">
+          <div className="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse"></div>
+          <span className="font-medium">Sincronización en tiempo real activa</span>
         </div>
       )}
     </div>

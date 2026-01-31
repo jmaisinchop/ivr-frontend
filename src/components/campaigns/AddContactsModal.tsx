@@ -1,10 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Upload, Database, FileSpreadsheet, User, Plus } from 'lucide-react';
+import { X, Upload, FileSpreadsheet, User, Plus } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import * as XLSX from 'xlsx';
-import axios from 'axios';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 interface Contact {
   identification: string;
@@ -20,12 +17,6 @@ interface AddContactsModalProps {
   defaultMessage?: string;
 }
 
-interface PadreNivel {
-  padre: string;
-  niveles_concatenados: string;
-  es_propia: boolean;
-}
-
 interface ExcelColumn {
   name: string;
   index: number;
@@ -37,7 +28,8 @@ export default function AddContactsModal({
   onAdd,
   defaultMessage = '',
 }: Readonly<AddContactsModalProps>) {
-  const [mode, setMode] = useState<'manual' | 'database' | 'excel'>('excel');
+  // Solo permitimos manual o excel
+  const [mode, setMode] = useState<'manual' | 'excel'>('excel');
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [manualInput, setManualInput] = useState('');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -58,73 +50,11 @@ export default function AddContactsModal({
 
   const [showMapping, setShowMapping] = useState(false);
 
-  const [padresNiveles, setPadresNiveles] = useState<PadreNivel[]>([]);
-  const [selectedPadre, setSelectedPadre] = useState<string | null>(null);
-  const [loadingDb, setLoadingDb] = useState(false);
-
   useEffect(() => {
-    if (isOpen && mode === 'database') {
-      loadPadresNiveles();
-    }
     if (isOpen && defaultMessage && !messageTemplate) {
       setMessageTemplate(defaultMessage);
     }
-  }, [isOpen, mode, defaultMessage]);
-
-  const loadPadresNiveles = async () => {
-    setLoadingDb(true);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/contactos/padres-niveles`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setPadresNiveles(response.data);
-    } catch (err: any) {
-      toast.error('Error cargando carteras: ' + err.message);
-    } finally {
-      setLoadingDb(false);
-    }
-  };
-
-  const loadContactsFromDb = async () => {
-    if (!selectedPadre) {
-      toast.error('Selecciona una cartera');
-      return;
-    }
-
-    const selectedPadreObj = padresNiveles.find(p => p.padre === selectedPadre);
-    if (!selectedPadreObj) {
-      toast.error('Cartera no válida');
-      return;
-    }
-
-    setLoadingDb(true);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(`${API_URL}/contactos/contactosnivel`,
-        {
-          niveles: selectedPadreObj.niveles_concatenados,
-          esPropia: selectedPadreObj.es_propia
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const data = response.data;
-
-      const formattedContacts: Contact[] = data.map((c: any) => ({
-        identification: c.cedula || '',
-        name: c.nombre || '',
-        phone: c.numero || '',
-        message: defaultMessage,
-      }));
-
-      setContacts(formattedContacts);
-      toast.success(`${formattedContacts.length} contactos cargados desde la base de datos`);
-    } catch (err: any) {
-      toast.error('Error cargando contactos: ' + err.message);
-    } finally {
-      setLoadingDb(false);
-    }
-  };
+  }, [isOpen, defaultMessage, messageTemplate]);
 
   const processExcelFile = async (file: File) => {
     try {
@@ -359,75 +289,64 @@ export default function AddContactsModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-5xl max-h-[95vh] overflow-hidden">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in">
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-border/50 bg-secondary/20">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <h2 className="text-2xl font-bold text-foreground">
               Gestión de Contactos
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Importe contactos desde un archivo
+            <p className="text-sm text-muted-foreground mt-1">
+              Importe contactos desde un archivo Excel/CSV o manualmente
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="p-2 rounded-full hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto max-h-[calc(95vh-180px)]">
-          <div className="grid grid-cols-3 gap-4 mb-6">
+        {/* Content */}
+        <div className="p-6 overflow-y-auto flex-1">
+          {/* Tabs */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
             <button
               onClick={() => setMode('manual')}
-              className={`p-4 border-2 rounded-lg transition-all ${mode === 'manual'
-                ? 'border-gray-500 bg-gray-50 dark:bg-gray-900/20'
-                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                }`}
+              className={`p-4 border-2 rounded-xl transition-all flex flex-col items-center justify-center ${
+                mode === 'manual'
+                  ? 'border-primary bg-primary/5 text-primary'
+                  : 'border-border bg-card text-muted-foreground hover:border-primary/50'
+              }`}
             >
-              <User className="w-6 h-6 mx-auto mb-2 text-gray-500" />
-              <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
-                Ingreso Manual
-              </h3>
+              <User className={`w-6 h-6 mb-2 ${mode === 'manual' ? 'text-primary' : 'text-muted-foreground'}`} />
+              <h3 className="font-semibold text-sm">Ingreso Manual</h3>
             </button>
 
             <button
               onClick={() => setMode('excel')}
-              className={`p-4 border-2 rounded-lg transition-all ${mode === 'excel'
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
-                }`}
+              className={`p-4 border-2 rounded-xl transition-all flex flex-col items-center justify-center ${
+                mode === 'excel'
+                  ? 'border-green-500 bg-green-500/5 text-green-600 dark:text-green-400'
+                  : 'border-border bg-card text-muted-foreground hover:border-green-500/50'
+              }`}
             >
-              <FileSpreadsheet className="w-6 h-6 mx-auto mb-2 text-blue-500" />
-              <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
-                Importar Excel
-              </h3>
-            </button>
-
-            <button
-              onClick={() => setMode('database')}
-              className={`p-4 border-2 rounded-lg transition-all ${mode === 'database'
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
-                }`}
-            >
-              <Database className="w-6 h-6 mx-auto mb-2 text-blue-500" />
-              <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
-                Finsolred
-              </h3>
+              <FileSpreadsheet className={`w-6 h-6 mb-2 ${mode === 'excel' ? 'text-green-500' : 'text-muted-foreground'}`} />
+              <h3 className="font-semibold text-sm">Importar Excel</h3>
             </button>
           </div>
 
+          {/* Mode: Excel */}
           {mode === 'excel' && !showMapping && (
             <div className="space-y-4">
-              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-12 text-center">
-                <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
+              <div className="border-2 border-dashed border-border rounded-xl p-12 text-center hover:bg-secondary/5 transition-colors">
+                <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
+                <p className="text-foreground font-medium mb-2">
                   Arrastra o haz clic para seleccionar
                 </p>
-                <p className="text-sm text-gray-500 dark:text-gray-500 mb-4">
+                <p className="text-sm text-muted-foreground mb-6">
                   .xlsx .xls .csv
                 </p>
                 <input
@@ -440,125 +359,112 @@ export default function AddContactsModal({
                 />
                 <label
                   htmlFor="file-upload-excel"
-                  className="inline-block px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 cursor-pointer"
+                  className="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 cursor-pointer font-medium transition-colors"
                 >
                   Seleccionar archivo
                 </label>
               </div>
 
               {uploadedFile && !showMapping && (
-                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg flex items-center">
-                  <FileSpreadsheet className="w-5 h-5 text-green-600 mr-3" />
+                <div className="p-4 bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/20 rounded-xl flex items-center">
+                  <FileSpreadsheet className="w-5 h-5 text-green-600 dark:text-green-400 mr-3" />
                   <div className="flex-1">
-                    <p className="font-semibold text-green-700 dark:text-green-400">
+                    <p className="font-semibold text-green-700 dark:text-green-300">
                       {uploadedFile.name}
                     </p>
-                    <p className="text-sm text-green-600 dark:text-green-500">
+                    <p className="text-xs text-green-600 dark:text-green-400">
                       {((uploadedFile.size / 1024).toFixed(2))} KB
                     </p>
                   </div>
-                  <span className="text-green-600 font-semibold">
-                    {excelData.length} registros
+                  <span className="text-green-700 dark:text-green-300 font-semibold text-sm">
+                    {excelData.length} filas
                   </span>
                 </div>
               )}
             </div>
           )}
 
+          {/* Mode: Mapping */}
           {mode === 'excel' && showMapping && (
-            <div className="space-y-6">
-              <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg flex items-center justify-between">
+            <div className="space-y-6 animate-in slide-in-from-bottom-2">
+              <div className="p-4 bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/20 rounded-xl flex items-center justify-between">
                 <div className="flex items-center">
-                  <FileSpreadsheet className="w-5 h-5 text-green-600 mr-3" />
-                  <div>
-                    <p className="font-semibold text-green-700 dark:text-green-400">
-                      {uploadedFile?.name}
-                    </p>
-                  </div>
+                  <FileSpreadsheet className="w-5 h-5 text-green-600 dark:text-green-400 mr-3" />
+                  <p className="font-semibold text-green-700 dark:text-green-300">
+                    {uploadedFile?.name}
+                  </p>
                 </div>
-                <span className="text-green-600 font-semibold">
+                <span className="text-green-700 dark:text-green-300 font-bold text-sm">
                   {excelData.length} registros
                 </span>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Columna teléfono <span className="text-red-500">*</span>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    Columna Teléfono <span className="text-destructive">*</span>
                   </label>
                   <select
                     value={columnMapping.telefono}
                     onChange={(e) => setColumnMapping({ ...columnMapping, telefono: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                      bg-white dark:bg-gray-700 text-gray-900 dark:text-white
-                      focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 bg-background border border-input rounded-xl focus:ring-2 focus:ring-ring focus:outline-none"
                   >
                     <option value="">Seleccione</option>
                     {excelColumns.map((col) => (
-                      <option key={col.index} value={col.name}>
-                        {col.name}
-                      </option>
+                      <option key={col.index} value={col.name}>{col.name}</option>
                     ))}
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Columna nombre (opcional)
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    Columna Nombre (opcional)
                   </label>
                   <select
                     value={columnMapping.nombre}
                     onChange={(e) => setColumnMapping({ ...columnMapping, nombre: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                      bg-white dark:bg-gray-700 text-gray-900 dark:text-white
-                      focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 bg-background border border-input rounded-xl focus:ring-2 focus:ring-ring focus:outline-none"
                   >
                     <option value="">Seleccione</option>
                     {excelColumns.map((col) => (
-                      <option key={col.index} value={col.name}>
-                        {col.name}
-                      </option>
+                      <option key={col.index} value={col.name}>{col.name}</option>
                     ))}
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Columna identificación (opcional)
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    Columna ID (opcional)
                   </label>
                   <select
                     value={columnMapping.identificacion}
                     onChange={(e) => setColumnMapping({ ...columnMapping, identificacion: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                      bg-white dark:bg-gray-700 text-gray-900 dark:text-white
-                      focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 bg-background border border-input rounded-xl focus:ring-2 focus:ring-ring focus:outline-none"
                   >
                     <option value="">Seleccione</option>
                     {excelColumns.map((col) => (
-                      <option key={col.index} value={col.name}>
-                        {col.name}
-                      </option>
+                      <option key={col.index} value={col.name}>{col.name}</option>
                     ))}
                   </select>
                 </div>
               </div>
 
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">
-                  Plantilla del Mensaje
+              <div className="border-t border-border/50 pt-4">
+                <label className="block text-sm font-bold text-foreground mb-3">
+                  Plantilla del Mensaje (Variables)
                 </label>
 
                 <div className="mb-3">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                    Haga clic para insertar variable:
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Clic para insertar variable de su Excel:
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {excelColumns.map((col) => (
                       <button
                         key={col.index}
                         onClick={() => insertVariable(col.name)}
-                        className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-sm font-medium hover:opacity-80 transition-opacity flex items-center"
                         type="button"
+                        className="px-2.5 py-1 bg-secondary text-secondary-foreground rounded-lg text-xs font-medium hover:bg-secondary/80 flex items-center transition-colors"
                       >
                         <Plus className="w-3 h-3 mr-1" /> {col.name}
                       </button>
@@ -571,11 +477,11 @@ export default function AddContactsModal({
                   value={messageTemplate}
                   onChange={(e) => setMessageTemplate(e.target.value)}
                   placeholder="Hola {{Nombre}}, le escribimos por su deuda de {{Monto}}..."
-                  className="w-full h-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                    bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm
-                    focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full h-32 px-4 py-3 bg-background border border-input rounded-xl focus:ring-2 focus:ring-ring focus:outline-none font-mono text-sm resize-none"
                 />
-                <p className="text-xs text-gray-500 mt-1">Use las variables de arriba para personalizar el mensaje por cada contacto.</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  El mensaje se generará dinámicamente para cada fila del Excel.
+                </p>
               </div>
 
               <div className="flex gap-3 pt-2">
@@ -587,14 +493,14 @@ export default function AddContactsModal({
                     setExcelData([]);
                     setMessageTemplate('');
                   }}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                  className="px-4 py-2 text-foreground hover:bg-secondary rounded-xl transition-colors font-medium"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleProcessMapping}
                   disabled={!columnMapping.telefono}
-                  className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   Procesar Contactos
                 </button>
@@ -602,24 +508,26 @@ export default function AddContactsModal({
             </div>
           )}
 
+          {/* Mode: Manual */}
           {mode === 'manual' && (
-            <div className="space-y-4">
+            <div className="space-y-4 animate-in fade-in">
               <div>
-                <label htmlFor="manual-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Pegar datos manualmente
+                <label htmlFor="manual-input" className="block text-sm font-medium text-foreground mb-2">
+                  Pegar datos (CSV)
                 </label>
+                <div className="bg-secondary/20 p-3 rounded-lg mb-2 text-xs text-muted-foreground font-mono">
+                  Formato: identificacion, nombre, telefono, mensaje
+                </div>
                 <textarea
                   id="manual-input"
                   value={manualInput}
                   onChange={(e) => setManualInput(e.target.value)}
-                  placeholder={`identificacion,nombre,telefono,mensaje\n1234567890,Juan Pérez,0991234567,Hola Juan...\n0987654321,María García,0987654321,Hola María...`}
-                  className="w-full h-40 px-3 py-2 border border-gray-300 dark:border-gray-600
-                    rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                    bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm"
+                  placeholder={`1234567890,Juan Pérez,0991234567,Hola Juan...\n0987654321,María García,0987654321,Hola María...`}
+                  className="w-full h-64 px-4 py-3 bg-background border border-input rounded-xl focus:ring-2 focus:ring-ring focus:outline-none font-mono text-sm"
                 />
                 <button
                   onClick={handleManualParse}
-                  className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                  className="mt-4 w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 font-medium transition-all"
                 >
                   Procesar Datos
                 </button>
@@ -627,64 +535,33 @@ export default function AddContactsModal({
             </div>
           )}
 
-          {mode === 'database' && (
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="select-padre" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Seleccionar Cartera
-                </label>
-                <select
-                  id="select-padre"
-                  value={selectedPadre || ''}
-                  onChange={(e) => setSelectedPadre(e.target.value)}
-                  disabled={loadingDb}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                    bg-white dark:bg-gray-700 text-gray-900 dark:text-white
-                    focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">-- Seleccionar --</option>
-                  {padresNiveles.map((padre) => (
-                    <option key={padre.padre} value={padre.padre}>
-                      {padre.padre} ({padre.es_propia ? 'Propia' : 'Externa'})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                onClick={loadContactsFromDb}
-                disabled={!selectedPadre || loadingDb}
-                className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600
-                  disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loadingDb ? 'Cargando...' : 'Cargar Contactos'}
-              </button>
-            </div>
-          )}
-
           {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-              <p className="text-sm text-red-700 dark:text-red-400">
-                ❌ {error}
+            <div className="mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-xl">
+              <p className="text-sm text-destructive font-medium flex items-center">
+                <X className="w-4 h-4 mr-2" /> {error}
               </p>
             </div>
           )}
 
           {contacts.length > 0 && !showMapping && (
-            <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-              <p className="text-sm text-green-700 dark:text-green-400 font-medium mb-2">
-                ✅ {contacts.length} contactos listos para agregar
+            <div className="mt-6 p-4 bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/20 rounded-xl animate-in slide-in-from-bottom-2">
+              <p className="text-sm text-green-700 dark:text-green-300 font-bold mb-3 flex items-center">
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                {contacts.length} contactos listos para importar
               </p>
-              <div className="max-h-40 overflow-y-auto">
-                {contacts.slice(0, 5).map((contact, index) => (
-                  <div key={`${contact.identification}-${index}`} className="text-xs text-gray-600 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700 pb-1 mb-1">
-                    <p><span className="font-semibold">{contact.phone}</span> - {contact.name}</p>
-                    <p className="text-gray-500 truncate italic">"{contact.message}"</p>
+              <div className="max-h-40 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
+                {contacts.slice(0, 10).map((contact, index) => (
+                  <div key={`${contact.identification}-${index}`} className="text-xs bg-background/50 p-2 rounded-lg border border-green-100 dark:border-green-900/30">
+                    <div className="flex justify-between font-medium text-foreground">
+                      <span>{contact.phone}</span>
+                      <span>{contact.name}</span>
+                    </div>
+                    <p className="text-muted-foreground truncate italic mt-1">"{contact.message}"</p>
                   </div>
                 ))}
-                {contacts.length > 5 && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    ... y {contacts.length - 5} más
+                {contacts.length > 10 && (
+                  <p className="text-xs text-center text-muted-foreground pt-2">
+                    ... y {contacts.length - 10} más
                   </p>
                 )}
               </div>
@@ -692,20 +569,21 @@ export default function AddContactsModal({
           )}
         </div>
 
+        {/* Footer */}
         {!showMapping && (
-          <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-end gap-3 p-6 border-t border-border/50 bg-secondary/10">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              className="px-4 py-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl transition-colors font-medium"
             >
               Cancelar
             </button>
             <button
               onClick={handleSubmit}
               disabled={contacts.length === 0 || loading}
-              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-all"
             >
-              Agregar Contactos
+              Confirmar e Importar
             </button>
           </div>
         )}

@@ -9,24 +9,41 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className, label, error, ...props }, ref) => {
     return (
-      <div className="w-full">
+      <div className="w-full space-y-2">
         {label && (
-          <label className="block text-sm font-medium text-dark-300 mb-1.5">
+          <label className="block text-sm font-medium text-foreground ml-1">
             {label}
           </label>
         )}
         <textarea
           ref={ref}
           className={cn(
-            'w-full px-4 py-2.5 bg-dark-800 border rounded-lg text-white placeholder-dark-500 resize-none',
-            'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent',
-            'transition-all duration-200',
-            error ? 'border-red-500' : 'border-dark-600 hover:border-dark-500',
+            // Base Layout
+            'flex min-h-[80px] w-full rounded-xl border px-4 py-3 text-sm transition-all duration-200 resize-none',
+            
+            // Colors (Light/Dark Auto)
+            'bg-background/80 border-input text-foreground placeholder:text-muted-foreground',
+            
+            // Hover States
+            'hover:bg-accent/10 hover:border-primary/30',
+            
+            // Focus States
+            'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ring-offset-background',
+            
+            // Error State
+            error 
+              ? 'border-destructive focus:ring-destructive/50 text-destructive placeholder:text-destructive/50' 
+              : '',
+            
             className
           )}
           {...props}
         />
-        {error && <p className="mt-1.5 text-sm text-red-400">{error}</p>}
+        {error && (
+          <p className="text-[0.8rem] font-medium text-destructive ml-1 animate-in slide-in-from-top-1 fade-in-0">
+            {error}
+          </p>
+        )}
       </div>
     );
   }
