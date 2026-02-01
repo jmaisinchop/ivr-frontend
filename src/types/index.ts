@@ -185,3 +185,127 @@ export interface DashboardUpdate {
   _broadcast?: boolean;
   timestamp?: number;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST-CALL MENU & AGENT TRANSFER TYPES
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Configuración del menú post-llamada por campaña */
+export interface PostCallConfig {
+  id: string;
+  campaignId: string;
+  active: boolean;
+  menuAudioText: string;
+  option1Label: string;
+  option2Label: string;
+  confirmationAudioText: string;
+  invalidInputAudioText: string;
+  queueAudioText: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePostCallConfigDto {
+  campaignId: string;
+  active: boolean;
+  menuAudioText: string;
+  option1Label: string;
+  option2Label: string;
+  confirmationAudioText: string;
+  invalidInputAudioText: string;
+  queueAudioText: string;
+}
+
+export interface UpdatePostCallConfigDto {
+  active?: boolean;
+  menuAudioText?: string;
+  option1Label?: string;
+  option2Label?: string;
+  confirmationAudioText?: string;
+  invalidInputAudioText?: string;
+  queueAudioText?: string;
+}
+
+/** Estado de un asesor en tiempo real */
+export type AgentStatus = 'AVAILABLE' | 'ON_CALL' | 'OFFLINE';
+
+export interface Agent {
+  id: string;
+  userId: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  extension: string;
+  status: AgentStatus;
+  activeCalls: number;
+  totalCallsToday: number;
+  currentContact?: AgentCurrentContact | null;
+}
+
+export interface AgentCurrentContact {
+  contactId: string;
+  cedula: string;
+  nombre: string;
+  telefono: string;
+  campaignId: string;
+  campaignName: string;
+  connectedAt: string;
+}
+
+/** Entrada en la cola de espera */
+export interface QueueEntry {
+  contactId: string;
+  cedula: string;
+  nombre: string;
+  telefono: string;
+  campaignId: string;
+  campaignName: string;
+  position: number;
+  enqueuedAt: string;
+  waitingSeconds: number;
+}
+
+/** Evento WebSocket que llega al panel del asesor */
+export interface AgentCallEvent {
+  type: 'INCOMING_CALL' | 'CALL_ENDED' | 'COMMITMENT_REGISTERED';
+  contactId: string;
+  cedula: string;
+  nombre: string;
+  telefono: string;
+  campaignId: string;
+  campaignName: string;
+  connectedAt?: string;
+  commitment?: Commitment;
+}
+
+/** Compromiso de pago */
+export interface Commitment {
+  id: string;
+  contactId: string;
+  cedula: string;
+  campaignId: string;
+  promisedDate: string;
+  registeredAt: string;
+  registeredBy: 'AUTOMATIC' | 'MANUAL';
+  agentId: string | null;
+  agentUsername: string | null;
+  notes: string | null;
+}
+
+export interface CreateCommitmentDto {
+  contactId: string;
+  cedula: string;
+  campaignId: string;
+  promisedDate: string;
+  registeredBy: 'AUTOMATIC' | 'MANUAL';
+  agentId?: string;
+  notes?: string;
+}
+
+/** Resumen de la mesa de control (snapshot en tiempo real) */
+export interface MesaControlSnapshot {
+  agents: Agent[];
+  queue: QueueEntry[];
+  activeCalls: number;
+  totalCommitmentsToday: number;
+}

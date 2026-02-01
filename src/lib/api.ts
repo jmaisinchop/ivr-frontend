@@ -49,6 +49,7 @@ export const authApi = {
 // Campaigns API
 export const campaignsApi = {
   getAll: (params?: { page?: number; limit?: number; search?: string; status?: string }) => {
+    // Convierte el objeto de params a query string (ej: ?page=1&limit=10...)
     const query = new URLSearchParams();
     if (params?.page) query.append('page', params.page.toString());
     if (params?.limit) query.append('limit', params.limit.toString());
@@ -181,4 +182,56 @@ export const contactosApi = {
 export const amiApi = {
   testCall: (texto: string, numero: string, contactId?: string) =>
     api.post('/ami/call', { texto, numero, contactId }),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST-CALL MENU API
+// Rutas reales del backend: /post-call/menu/:campaignId
+// ─────────────────────────────────────────────────────────────────────────────
+export const postCallApi = {
+  getConfigByCampaign: (campaignId: string) =>
+    api.get(`/post-call/menu/${campaignId}`),
+
+  createConfig: (campaignId: string, data: {
+    active: boolean;
+    menuAudioText: string;
+    option1Label: string;
+    option2Label: string;
+    confirmationAudioText: string;
+    invalidInputAudioText: string;
+    queueAudioText: string;
+  }) =>
+    api.post(`/post-call/menu/${campaignId}`, data),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AGENTS (ASESORES) API
+// Rutas reales del backend: /post-call/agents, /post-call/queue
+// ─────────────────────────────────────────────────────────────────────────────
+export const agentsApi = {
+  getAll: () => api.get('/post-call/agents'),
+
+  getQueue: () => api.get('/post-call/queue'),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPROMISOS DE PAGO API
+// Rutas reales del backend: /post-call/commitments/...
+// ─────────────────────────────────────────────────────────────────────────────
+export const commitmentsApi = {
+  create: (data: {
+    contactId: string;
+    cedula: string;
+    campaignId: string;
+    promisedDate: string;
+    agentId: string;
+    notes?: string;
+  }) =>
+    api.post('/post-call/commitments/manual', data),
+
+  getByContact: (contactId: string) =>
+    api.get(`/post-call/commitments/contact/${contactId}`),
+
+  getByCampaign: (campaignId: string, params?: { startDate?: string; endDate?: string }) =>
+    api.get(`/post-call/commitments/campaign/${campaignId}`, { params }),
 };

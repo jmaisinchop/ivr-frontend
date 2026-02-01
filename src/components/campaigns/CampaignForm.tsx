@@ -1,27 +1,48 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { CreateCampaignDto } from '@/types';
 import { formatDateInput } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+import PostCallConfigSection, { PostCallConfigSectionRef } from '@/components/PostCallConfigSection';
 
 interface CampaignFormProps {
   initialData?: Partial<CreateCampaignDto>;
-  onSubmit: (data: CreateCampaignDto) => Promise<void>;
+  onSubmit: (data: CreateCampaignDto) => Promise<string | void>; // retorna campaignId si es nuevo
   onCancel: () => void;
   isLoading?: boolean;
   submitLabel?: string;
+  campaignId?: string; // existe = editar, no existe = crear/duplicar
 }
 
-export function CampaignForm({
+// Ref que el padre usa para guardar post-llamada después de crear la campaña
+export interface CampaignFormRef {
+  savePostCall: (campaignId: string) => Promise<void>;
+  hasPostCallChanges: boolean;
+}
+
+export const CampaignForm = forwardRef<CampaignFormRef, CampaignFormProps>(({
   initialData,
   onSubmit,
   onCancel,
   isLoading,
   submitLabel = 'Crear Campaña',
-}: CampaignFormProps) {
+  campaignId,
+}, formRef) => {
+  const postCallRef = useRef<PostCallConfigSectionRef>(null);
+
+  useImperativeHandle(formRef, () => ({
+    savePostCall: async (id: string) => {
+      if (postCallRef.current) {
+        await postCallRef.current.save(id);
+      }
+    },
+    get hasPostCallChanges() {
+      return postCallRef.current?.hasChanges ?? false;
+    },
+  }));
   const now = new Date();
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
@@ -61,8 +82,15 @@ export function CampaignForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validate()) {
-      await onSubmit(formData);
+    if (!validate()) return;
+
+    // 1. Crear/editar la campaña → el padre retorna el id (nuevo o existente)
+    const savedId = await onSubmit(formData);
+
+    // 2. Si hay cambios en post-llamada, guardarlos con el id de la campaña
+    const targetId = savedId || campaignId;
+    if (targetId && postCallRef.current?.hasChanges) {
+      await postCallRef.current.save(targetId);
     }
   };
 
@@ -147,6 +175,9 @@ export function CampaignForm({
         </label>
       </div>
 
+      {/* ── Sección menú post-llamada ── */}
+      <PostCallConfigSection ref={postCallRef} campaignId={campaignId} />
+
       <div className="flex justify-end gap-3 pt-6 border-t border-border/50">
         <Button type="button" variant="outline" onClick={onCancel} className="bg-background">
           Cancelar
@@ -157,4 +188,6 @@ export function CampaignForm({
       </div>
     </form>
   );
-}
+});
+
+CampaignForm.displayName = 'CampaignForm';

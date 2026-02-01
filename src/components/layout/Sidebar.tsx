@@ -15,7 +15,9 @@ import {
   User,
   ChevronLeft,
   ChevronRight,
-  Command
+  Command,
+  MonitorDot,
+  Headset
 } from 'lucide-react';
 
 // --- IMPORTANTE: Definimos que este componente recibe estas props ---
@@ -48,6 +50,18 @@ const navItems: NavItem[] = [
     label: 'Estadísticas',
     href: '/stats',
     icon: <BarChart3 className="w-5 h-5" />,
+  },
+  {
+    label: 'Mesa de Control',
+    href: '/mesa-control',
+    icon: <MonitorDot className="w-5 h-5" />,
+    roles: ['ADMIN', 'SUPERVISOR'],
+  },
+  {
+    label: 'Panel Asesor',
+    href: '/asesor',
+    icon: <Headset className="w-5 h-5" />,
+    roles: ['CALLCENTER'],
   },
   {
     label: 'Usuarios',

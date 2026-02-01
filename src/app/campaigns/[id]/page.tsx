@@ -71,7 +71,6 @@ export default function CampaignDetailPage() {
     )
   );
 
-  // --- Lógica de Exportación a Excel (.xlsx) CORREGIDA ---
   const handleExport = async () => {
     setDownloading(true);
     try {
@@ -93,27 +92,26 @@ export default function CampaignDetailPage() {
         return;
       }
 
-      // CORRECCIÓN: Mapeo exacto según tu backend (getRawMany con alias)
       const dataToExport = contacts.map((c: any) => ({
         'ID': c.id,
         'Nombre': c.name,
         'Teléfono': c.phone,
         'Identificación': c.identification || '-',
-        'Estado': c.status,      // Backend devuelve 'status' (alias), no 'callStatus'
-        'Intentos': c.retries,   // Backend devuelve 'retries' (alias), no 'attemptCount'
+        'Estado': c.status,
+        'Intentos': c.retries,
         'Mensaje': c.message || ''
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(dataToExport);
       
       const wscols = [
-        { wch: 10 }, // ID
-        { wch: 30 }, // Nombre
-        { wch: 15 }, // Teléfono
-        { wch: 15 }, // Identificación
-        { wch: 15 }, // Estado
-        { wch: 10 }, // Intentos
-        { wch: 50 }, // Mensaje
+        { wch: 10 },
+        { wch: 30 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 10 },
+        { wch: 50 },
       ];
       worksheet['!cols'] = wscols;
 
@@ -130,7 +128,6 @@ export default function CampaignDetailPage() {
       setDownloading(false);
     }
   };
-  // --------------------------------------------------------
 
   const handleStart = async () => {
     try {
@@ -167,6 +164,7 @@ export default function CampaignDetailPage() {
       await updateCampaign(campaignId, data);
       toast.success('Campaña actualizada');
       setShowEditModal(false);
+      return campaignId; // retorna el id para que post-call se guarde si hay cambios
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -329,6 +327,7 @@ export default function CampaignDetailPage() {
         </Card>
       </div>
 
+      {/* Modal Editar — pasa campaignId para que PostCallConfigSection cargue la config existente */}
       <Modal
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
@@ -336,6 +335,7 @@ export default function CampaignDetailPage() {
         size="lg"
       >
         <CampaignForm
+          campaignId={campaignId}
           initialData={{
             name: campaign.name,
             startDate: formatDateInput(new Date(campaign.startDate)),

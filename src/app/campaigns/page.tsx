@@ -21,36 +21,31 @@ import { StatusBadge } from '@/components/ui/Badge';
 import { formatDate } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useDebounce } from '@/hooks/useDebounce';
-import { campaignsApi } from '@/lib/api'; // Asegúrate de que esto apunte a tu archivo api.ts actualizado
+import { campaignsApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
 export default function CampaignsPage() {
   const { createCampaign, duplicateCampaign } = useCampaignStore();
 
-  // --- Estados de Filtros y Paginación ---
   const [search, setSearch] = useState('');
-  const debouncedSearch = useDebounce(search, 500); // Espera 500ms al escribir
+  const debouncedSearch = useDebounce(search, 500);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [page, setPage] = useState(1);
-  const [limit] = useState(10); // Límite fijo o podrías hacerlo dinámico
+  const [limit] = useState(10);
 
-  // --- Estados de Datos ---
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [meta, setMeta] = useState({ total: 0, lastPage: 1 });
   const [isLoading, setIsLoading] = useState(true);
 
-  // --- Estados de Modales ---
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [campaignToDuplicate, setCampaignToDuplicate] = useState<Campaign | null>(null);
   const [creating, setCreating] = useState(false);
 
-  // --- Función para cargar datos desde el Backend ---
   const fetchCampaigns = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Llamamos a la API con los parámetros de filtro
       const response = await campaignsApi.getAll({
         page,
         limit,
@@ -58,7 +53,6 @@ export default function CampaignsPage() {
         status: statusFilter,
       });
 
-      // Axios devuelve la respuesta en .data, y tu backend devuelve { data: [], meta: {} }
       const { data, meta } = response.data;
 
       if (data) {
@@ -73,25 +67,22 @@ export default function CampaignsPage() {
     }
   }, [page, limit, debouncedSearch, statusFilter]);
 
-  // Recargar cuando cambian los filtros (page, search, status)
   useEffect(() => {
     fetchCampaigns();
   }, [fetchCampaigns]);
 
-  // Resetear a página 1 cuando se cambia el texto de búsqueda o el filtro de estado
   useEffect(() => {
     setPage(1);
   }, [debouncedSearch, statusFilter]);
 
-  // --- Manejadores de Acciones ---
-
   const handleCreate = async (data: CreateCampaignDto) => {
     setCreating(true);
     try {
-      await createCampaign(data);
+      const newCampaign = await createCampaign(data);
       toast.success('Campaña creada exitosamente');
       setShowCreateModal(false);
-      fetchCampaigns(); // Recargar tabla para ver la nueva campaña
+      fetchCampaigns();
+      return newCampaign?.id; // retorna el id para que el form guarde post-call
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -103,10 +94,11 @@ export default function CampaignsPage() {
     if (!campaignToDuplicate) return;
     setCreating(true);
     try {
-      await duplicateCampaign(campaignToDuplicate.id, data);
+      const newCampaign = await duplicateCampaign(campaignToDuplicate.id, data);
       toast.success('Campaña duplicada correctamente');
       setShowDuplicateModal(false);
-      fetchCampaigns(); // Recargar tabla
+      fetchCampaigns();
+      return newCampaign?.id; // retorna el id para que el form guarde post-call
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -129,10 +121,8 @@ export default function CampaignsPage() {
 
       <div className="p-6 space-y-6">
         
-        {/* --- Barra de Filtros y Acciones --- */}
         <div className="flex flex-col md:flex-row justify-between gap-4 bg-card p-4 rounded-xl border border-border/50 shadow-sm">
           <div className="flex flex-col sm:flex-row gap-3 flex-1">
-            {/* Buscador */}
             <div className="relative w-full sm:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -142,22 +132,19 @@ export default function CampaignsPage() {
                 className="pl-9"
               />
             </div>
-            {/* Filtro de Estado */}
             <Select
               options={statusOptions}
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full sm:w-48"
+              className="w-full sm:w-46"
             />
           </div>
-          {/* Botón Crear */}
           <Button onClick={() => setShowCreateModal(true)} className="shadow-sm">
             <Plus className="w-4 h-4 mr-2" />
             Nueva Campaña
           </Button>
         </div>
 
-        {/* --- Tabla de Datos --- */}
         <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden">
           <Table>
             <TableHeader>
@@ -171,7 +158,6 @@ export default function CampaignsPage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                // Skeleton Loading Rows (Efecto de carga)
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
@@ -182,7 +168,6 @@ export default function CampaignsPage() {
                   </TableRow>
                 ))
               ) : campaigns.length === 0 ? (
-                // Estado Vacío
                 <TableRow>
                   <TableCell colSpan={5} className="h-64 text-center">
                     <div className="flex flex-col items-center justify-center text-muted-foreground">
@@ -193,7 +178,6 @@ export default function CampaignsPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                // Filas de Datos
                 campaigns.map((camp) => (
                   <TableRow key={camp.id} className="group hover:bg-muted/30 transition-colors">
                     <TableCell>
@@ -257,7 +241,6 @@ export default function CampaignsPage() {
             </TableBody>
           </Table>
 
-          {/* --- Paginación --- */}
           <div className="flex items-center justify-between px-4 py-4 border-t border-border/50 bg-muted/10">
             <div className="text-sm text-muted-foreground">
               Mostrando página <span className="font-medium text-foreground">{page}</span> de <span className="font-medium text-foreground">{meta.lastPage}</span>
@@ -288,8 +271,6 @@ export default function CampaignsPage() {
         </div>
       </div>
 
-      {/* --- Modales --- */}
-      
       {/* Modal Crear */}
       <Modal
         isOpen={showCreateModal}
