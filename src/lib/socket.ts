@@ -1,8 +1,10 @@
 import { io, Socket } from 'socket.io-client';
 import { DashboardUpdate } from '@/types';
 
+// URL del WebSocket (usa variable de entorno o fallback a localhost)
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3000';
 
+// Interfaces para métricas y control
 interface LatencyMetrics {
   current: number;
   average: number;
@@ -12,16 +14,27 @@ interface LatencyMetrics {
 }
 
 class SocketClient {
+  // Instancia real de Socket.io
   private socket: Socket | null = null;
+  
+  // Mapa de listeners internos: Aquí guardamos tus funciones de React
+  // Esto actúa como la "memoria" para evitar el error de carrera.
   private listeners: Map<string, Set<(data: any) => void>> = new Map();
+
+  // Variables de control de conexión
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
   private reconnectDelay = 3000;
   private currentToken: string | null = null;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private isManuallyDisconnected = false;
+
+  // Variables de monitoreo (Ping/Pong)
   private pingInterval: NodeJS.Timeout | null = null;
   private lastPingTimestamp = 0;
+  private readonly MAX_SAMPLES = 20;
+  private readonly PING_INTERVAL = 10000; // 10 segundos
+  
   private latencyMetrics: LatencyMetrics = {
     current: 0,
     average: 0,
@@ -29,12 +42,13 @@ class SocketClient {
     max: 0,
     samples: [],
   };
-  private readonly MAX_SAMPLES = 20; // Guardar últimas 20 mediciones
-  private readonly PING_INTERVAL = 10000; // Ping cada 10 segundos
 
+  /**
+   * Inicia la conexión con el token de autenticación.
+   */
   connect(token: string): void {
     if (this.socket?.connected) {
-      console.log('✅ Socket ya está conectado');
+      console.log('✅ [Socket] Ya está conectado');
       return;
     }
 
@@ -43,23 +57,28 @@ class SocketClient {
     this.attemptConnection();
   }
 
+  /**
+   * Lógica interna para establecer la conexión Socket.io
+   */
   private attemptConnection(): void {
     if (!this.currentToken || this.isManuallyDisconnected) {
       return;
     }
 
-    console.log(`🔌 Intentando conectar WebSocket (intento ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})...`);
+    console.log(`🔌 [Socket] Conectando (Intento ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})...`);
 
     this.socket = io(WS_URL, {
       query: { token: this.currentToken },
       transports: ['websocket', 'polling'],
-      reconnection: false,
+      reconnection: false, // Manejamos la reconexión manualmente para más control
       timeout: 10000,
       autoConnect: true,
     });
 
+    // ─── EVENTOS DEL SISTEMA ───
+
     this.socket.on('connect', () => {
-      console.log('✅ Socket conectado exitosamente');
+      console.log('✅ [Socket] Conectado exitosamente ID:', this.socket?.id);
       this.reconnectAttempts = 0;
       
       if (this.reconnectTimer) {
@@ -67,12 +86,12 @@ class SocketClient {
         this.reconnectTimer = null;
       }
 
-      // Iniciar health check automático
+      // Iniciar monitoreo de latencia
       this.startHealthCheck();
     });
 
     this.socket.on('disconnect', (reason) => {
-      console.warn('⚠️ Socket desconectado:', reason);
+      console.warn('⚠️ [Socket] Desconectado:', reason);
       this.stopHealthCheck();
       
       if (!this.isManuallyDisconnected) {
@@ -81,124 +100,117 @@ class SocketClient {
     });
 
     this.socket.on('connect_error', (error: Error) => {
-      console.error('❌ Error de conexión:', error.message);
+      console.error('❌ [Socket] Error de conexión:', error.message);
       this.scheduleReconnect();
     });
 
     this.socket.on('error', (error: { message: string }) => {
-      console.error('❌ Socket error:', error.message);
+      console.error('❌ [Socket] Error general:', error.message);
     });
 
     this.socket.on('forceDisconnect', ({ reason }: { reason: string }) => {
-      console.log('🚫 Desconexión forzada:', reason);
+      console.log('🚫 [Socket] Desconexión forzada por servidor:', reason);
       this.isManuallyDisconnected = true;
       this.disconnect();
     });
 
-    this.socket.on('dashboardUpdate', (data: DashboardUpdate) => {
-      console.log('📊 Dashboard update:', data.event);
-      this.emit('dashboardUpdate', data);
+    // ─── MANEJO CENTRALIZADO DE EVENTOS (LA SOLUCIÓN CLAVE) ───
+    
+    // Captura CUALQUIER evento que llegue del backend
+    this.socket.onAny((event, ...args) => {
+      // console.log(`📨 [Socket] Evento recibido: ${event}`, args); // Descomentar para debug agresivo
+      
+      // Si tenemos listeners registrados para este evento en nuestro mapa, los ejecutamos.
+      // Esto funciona aunque el listener se haya registrado ANTES de conectar.
+      if (this.listeners.has(event)) {
+        this.listeners.get(event)!.forEach((callback) => {
+          try {
+            callback(args[0]);
+          } catch (error) {
+            console.error(`❌ Error en callback de '${event}':`, error);
+          }
+        });
+      }
     });
 
-    this.socket.on('adminUpdate', (data: any) => {
-      console.log('👑 Admin update:', data);
-      this.emit('adminUpdate', data);
-    });
-
+    // Eventos específicos del sistema que requieren lógica extra
     this.socket.on('pong', (data: { timestamp: number }) => {
       this.handlePong(data.timestamp);
     });
-
-    this.socket.on('subscribed', (data: { channel: string; room: string }) => {
-      console.log('✅ Suscrito a:', data.channel);
-    });
-
-    this.socket.on('unsubscribed', (data: { channel: string }) => {
-      console.log('❌ Desuscrito de:', data.channel);
-    });
   }
 
-  private startHealthCheck(): void {
-    // Limpiar cualquier ping anterior
-    this.stopHealthCheck();
-
-    // Primer ping inmediato
-    this.sendPing();
-
-    // Pings periódicos
-    this.pingInterval = setInterval(() => {
-      this.sendPing();
-    }, this.PING_INTERVAL);
-  }
-
-  private stopHealthCheck(): void {
-    if (this.pingInterval) {
-      clearInterval(this.pingInterval);
-      this.pingInterval = null;
+  /**
+   * Registra un listener para un evento.
+   * Se guarda en memoria, por lo que funciona offline/online.
+   */
+  on(event: string, callback: (data: any) => void): void {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set());
     }
-  }
-
-  private sendPing(): void {
+    this.listeners.get(event)!.add(callback);
+    
+    // Log de debug para confirmar registro
     if (!this.socket?.connected) {
-      return;
+      console.log(`⏳ [Socket] Listener guardado en espera para: ${event}`);
     }
-
-    this.lastPingTimestamp = Date.now();
-    this.socket.emit('ping');
   }
 
-  private handlePong(serverTimestamp: number): void {
-    const now = Date.now();
-    const latency = now - this.lastPingTimestamp;
-
-    // Actualizar métricas
-    this.latencyMetrics.current = latency;
-    this.latencyMetrics.samples.push(latency);
-
-    // Mantener solo las últimas N muestras
-    if (this.latencyMetrics.samples.length > this.MAX_SAMPLES) {
-      this.latencyMetrics.samples.shift();
-    }
-
-    // Calcular estadísticas
-    this.latencyMetrics.min = Math.min(...this.latencyMetrics.samples);
-    this.latencyMetrics.max = Math.max(...this.latencyMetrics.samples);
-    this.latencyMetrics.average =
-      this.latencyMetrics.samples.reduce((a, b) => a + b, 0) /
-      this.latencyMetrics.samples.length;
-
-    console.log(`🏓 Pong recibido - Latencia: ${latency}ms (avg: ${this.latencyMetrics.average.toFixed(0)}ms)`);
-
-    // Emitir evento de latencia actualizada
-    this.emit('latencyUpdate', this.latencyMetrics);
+  /**
+   * Elimina un listener.
+   */
+  off(event: string, callback: (data: any) => void): void {
+    this.listeners.get(event)?.delete(callback);
   }
+
+  /**
+   * Emite un evento al servidor.
+   */
+  emit(event: string, data: any): void {
+    if (this.socket?.connected) {
+      this.socket.emit(event, data);
+    } else {
+      console.warn(`⚠️ [Socket] No se pudo emitir '${event}': Desconectado`);
+    }
+  }
+
+  /**
+   * Métodos de Suscripción a Canales
+   */
+  subscribe(channel: string): void {
+    if (this.socket?.connected) {
+      this.socket.emit('subscribe', { channel });
+    }
+  }
+
+  unsubscribe(channel: string): void {
+    if (this.socket?.connected) {
+      this.socket.emit('unsubscribe', { channel });
+    }
+  }
+
+  // ─── LÓGICA DE RECONEXIÓN Y HEALTH CHECK ───
 
   private scheduleReconnect(): void {
-    if (this.isManuallyDisconnected) {
-      return;
-    }
-
+    if (this.isManuallyDisconnected || this.reconnectTimer) return;
+    
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('❌ Máximo de intentos de reconexión alcanzado');
-      this.emit('maxReconnectAttemptsReached', {});
       return;
     }
 
-    if (this.reconnectTimer) {
-      return;
-    }
-
+    // Backoff exponencial para no saturar
     const delay = Math.min(
       this.reconnectDelay * Math.pow(1.5, this.reconnectAttempts),
       30000
     );
 
-    console.log(`⏳ Programando reconexión en ${delay}ms...`);
+    console.log(`⏳ Reconexión programada en ${delay}ms...`);
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.reconnectAttempts++;
       
+      // Limpieza total antes de reintentar
       if (this.socket) {
         this.socket.removeAllListeners();
         this.socket.close();
@@ -212,7 +224,6 @@ class SocketClient {
   disconnect(): void {
     console.log('🔌 Desconectando socket manualmente');
     this.isManuallyDisconnected = true;
-
     this.stopHealthCheck();
 
     if (this.reconnectTimer) {
@@ -226,66 +237,66 @@ class SocketClient {
       this.socket = null;
     }
 
+    // Limpiamos los listeners para evitar fugas de memoria al cerrar sesión
     this.listeners.clear();
     this.currentToken = null;
     this.reconnectAttempts = 0;
     this.resetLatencyMetrics();
   }
 
-  subscribe(channel: string): void {
-    if (!this.socket?.connected) {
-      console.warn('⚠️ Socket no conectado, no se puede suscribir a:', channel);
-      return;
-    }
-    this.socket.emit('subscribe', { channel });
+  // ─── PING / PONG Y MÉTRICAS ───
+
+  private startHealthCheck(): void {
+    this.stopHealthCheck();
+    this.sendPing();
+    this.pingInterval = setInterval(() => {
+      this.sendPing();
+    }, this.PING_INTERVAL);
   }
 
-  unsubscribe(channel: string): void {
-    if (!this.socket?.connected) {
-      return;
+  private stopHealthCheck(): void {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
     }
-    this.socket.emit('unsubscribe', { channel });
+  }
+
+  private sendPing(): void {
+    if (this.socket?.connected) {
+      this.lastPingTimestamp = Date.now();
+      this.socket.emit('ping');
+    }
   }
 
   ping(): void {
     this.sendPing();
   }
 
-  on(event: string, callback: (data: any) => void): void {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, new Set());
+  private handlePong(serverTimestamp: number): void {
+    const now = Date.now();
+    const latency = now - this.lastPingTimestamp;
+
+    this.latencyMetrics.current = latency;
+    this.latencyMetrics.samples.push(latency);
+
+    if (this.latencyMetrics.samples.length > this.MAX_SAMPLES) {
+      this.latencyMetrics.samples.shift();
     }
-    this.listeners.get(event)!.add(callback);
+
+    this.latencyMetrics.min = Math.min(...this.latencyMetrics.samples);
+    this.latencyMetrics.max = Math.max(...this.latencyMetrics.samples);
+    this.latencyMetrics.average =
+      this.latencyMetrics.samples.reduce((a, b) => a + b, 0) /
+      this.latencyMetrics.samples.length;
+
+    // Disparamos evento interno de actualización de latencia
+    this.dispatchInternalEvent('latencyUpdate', this.latencyMetrics);
   }
 
-  off(event: string, callback: (data: any) => void): void {
-    this.listeners.get(event)?.delete(callback);
-  }
-
-  private emit(event: string, data: any): void {
-    this.listeners.get(event)?.forEach((callback) => {
-      try {
-        callback(data);
-      } catch (error) {
-        console.error('❌ Error en listener:', error);
-      }
-    });
-  }
-
-  isConnected(): boolean {
-    return this.socket?.connected ?? false;
-  }
-
-  getReconnectAttempts(): number {
-    return this.reconnectAttempts;
-  }
-
-  getLatencyMetrics(): LatencyMetrics {
-    return { ...this.latencyMetrics };
-  }
-
-  resetReconnectAttempts(): void {
-    this.reconnectAttempts = 0;
+  private dispatchInternalEvent(event: string, data: any) {
+    if (this.listeners.has(event)) {
+      this.listeners.get(event)!.forEach(cb => cb(data));
+    }
   }
 
   private resetLatencyMetrics(): void {
@@ -298,22 +309,28 @@ class SocketClient {
     };
   }
 
+  // Getters y Utilidades
+  isConnected(): boolean {
+    return this.socket?.connected ?? false;
+  }
+
+  getReconnectAttempts(): number {
+    return this.reconnectAttempts;
+  }
+
+  getLatencyMetrics(): LatencyMetrics {
+    return { ...this.latencyMetrics };
+  }
+
   forceReconnect(): void {
     console.log('🔄 Forzando reconexión...');
-    this.reconnectAttempts = 0;
-    
-    this.stopHealthCheck();
-
-    if (this.socket) {
-      this.socket.removeAllListeners();
-      this.socket.close();
-      this.socket = null;
-    }
-
+    this.disconnect(); // Limpia todo
+    this.isManuallyDisconnected = false; // Permite reconectar
     if (this.currentToken) {
       this.attemptConnection();
     }
   }
 }
 
+// Exportamos una única instancia (Singleton) para toda la app
 export const socketClient = new SocketClient();

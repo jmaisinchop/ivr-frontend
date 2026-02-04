@@ -226,8 +226,15 @@ export interface UpdatePostCallConfigDto {
   queueAudioText?: string;
 }
 
-/** Estado de un asesor en tiempo real */
-export type AgentStatus = 'AVAILABLE' | 'ON_CALL' | 'OFFLINE';
+/** 
+ * Estado de un asesor en tiempo real
+ * 
+ * AVAILABLE  → Verde   → Conectado y listo para recibir llamadas
+ * ON_CALL    → Cyan    → En llamada activa con un cliente
+ * ON_BREAK   → Naranja → En descanso (baño, lunch). NO recibe llamadas.
+ * OFFLINE    → Gris    → Sin WebSocket activo. NO recibe llamadas.
+ */
+export type AgentStatus = 'AVAILABLE' | 'ON_CALL' | 'ON_BREAK' | 'OFFLINE';
 
 export interface Agent {
   id: string;
@@ -237,6 +244,9 @@ export interface Agent {
   username: string;
   extension: string;
   status: AgentStatus;
+  connected: boolean;                   // ← NUEVO: Si tiene al menos 1 socket activo
+  breakReason: string | null;           // ← NUEVO: Motivo del descanso (solo cuando ON_BREAK)
+  breakStartedAt: string | null;        // ← NUEVO: ISO timestamp inicio del descanso
   activeCalls: number;
   totalCallsToday: number;
   currentContact?: AgentCurrentContact | null;

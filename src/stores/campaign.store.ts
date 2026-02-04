@@ -65,18 +65,27 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
     }
   },
 
+  // ─── FIX: NO toca isLoading ──────────────────────────────────────────────
+  // Antes hacía set({ isLoading: true }) aquí. Eso causaba que CampaignDetailPage
+  // re-renderizara con <PageLoading />, lo cual desmontaba el Modal + CampaignForm
+  // + PostCallConfigSection MIENTRAS el handleSubmit del form aún estaba en medio
+  // de su flujo async. Al desmontarse, postCallRef quedaba null y save() nunca se ejecutaba.
+  //
+  // La solución: updateCampaign solo actualiza el estado en memoria silenciosamente.
+  // El loading del botón "Guardar" ya lo maneja CampaignDetailPage con su propio
+  // state local `updating` que pasa como isLoading al form. No falta más.
+  // ─────────────────────────────────────────────────────────────────────────
   updateCampaign: async (id: string, data: UpdateCampaignDto) => {
-    set({ isLoading: true, error: null });
+    set({ error: null });
     try {
       const { data: updated } = await campaignsApi.update(id, data);
       set((state) => ({
         campaigns: state.campaigns.map((c) => (c.id === id ? updated : c)),
         currentCampaign: state.currentCampaign?.id === id ? updated : state.currentCampaign,
-        isLoading: false,
       }));
     } catch (error: any) {
       const message = error.response?.data?.message || 'Error al actualizar campaña';
-      set({ error: message, isLoading: false });
+      set({ error: message });
       throw new Error(message);
     }
   },

@@ -194,12 +194,8 @@ export const postCallApi = {
 
   createConfig: (campaignId: string, data: {
     active: boolean;
-    menuAudioText: string;
-    option1Label: string;
-    option2Label: string;
-    confirmationAudioText: string;
-    invalidInputAudioText: string;
-    queueAudioText: string;
+    greeting: string;
+    options: { key: string; action: string; text: string }[];
   }) =>
     api.post(`/post-call/menu/${campaignId}`, data),
 };
@@ -215,19 +211,44 @@ export const agentsApi = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// AGENT PERSONAL API (NUEVO)
+// Rutas reales del backend: /post-call/history/me, /post-call/my-state
+// ─────────────────────────────────────────────────────────────────────────────
+export const agentApi = {
+  // Obtener historial personal del asesor con filtros opcionales
+  getHistory: (startDate?: string, endDate?: string) => {
+    return api.get('/post-call/history/me', {
+      params: { startDate, endDate }
+    });
+  },
+
+  // Recuperar el estado actual de la sesión (para persistencia F5)
+  getMyState: () => api.get('/post-call/my-state'),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // COMPROMISOS DE PAGO API
 // Rutas reales del backend: /post-call/commitments/...
 // ─────────────────────────────────────────────────────────────────────────────
 export const commitmentsApi = {
   create: (data: {
-    contactId: string;
-    cedula: string;
-    campaignId: string;
-    promisedDate: string;
-    agentId: string;
-    notes?: string;
-  }) =>
-    api.post('/post-call/commitments/manual', data),
+    contactId: string,
+    cedula: string,
+    campaignId: string,
+    promisedDate: string,
+    agentId: string,
+    notes?: string
+  }) => {
+    return api.post('/post-call/commitments/manual', {
+      contactId: data.contactId,
+      campaignId: data.campaignId,
+      agentId: data.agentId,
+      note: data.notes,
+
+      // Mapeo clave para el backend
+      commitmentDate: data.promisedDate
+    });
+  },
 
   getByContact: (contactId: string) =>
     api.get(`/post-call/commitments/contact/${contactId}`),

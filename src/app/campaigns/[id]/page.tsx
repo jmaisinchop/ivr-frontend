@@ -18,18 +18,8 @@ import { PageLoading } from '@/components/ui/Spinner';
 import { useAuthStore } from '@/stores/auth.store';
 import * as XLSX from 'xlsx';
 import {
-  Play,
-  Pause,
-  XCircle,
-  Edit2,
-  UserPlus,
-  Calendar,
-  RefreshCw,
-  Phone,
-  ArrowLeft,
-  Settings,
-  Activity,
-  Download,
+  Play, Pause, XCircle, Edit2, UserPlus,
+  Calendar, RefreshCw, Phone, ArrowLeft, Activity, Download,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
@@ -56,9 +46,19 @@ export default function CampaignDetailPage() {
   const [updating, setUpdating] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
+  // ─── LOG: Mount ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    console.log('📌 [CampaignDetailPage] MONTADO. campaignId:', campaignId);
+  }, [campaignId]);
+
   useEffect(() => {
     fetchCampaignById(campaignId);
   }, [campaignId, fetchCampaignById]);
+
+  // ─── LOG: Modal abre/cierra ──────────────────────────────────────────────
+  useEffect(() => {
+    console.log('📌 [CampaignDetailPage] showEditModal cambió a:', showEditModal);
+  }, [showEditModal]);
 
   useDashboardUpdates(
     useCallback(
@@ -72,6 +72,7 @@ export default function CampaignDetailPage() {
   );
 
   const handleExport = async () => {
+    console.log('📌 [CampaignDetailPage] handleExport iniciado');
     setDownloading(true);
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/campaigns/${campaignId}/contacts`, {
@@ -81,10 +82,10 @@ export default function CampaignDetailPage() {
           'Content-Type': 'application/json',
         },
       });
-
       if (!response.ok) throw new Error('Error al obtener datos');
 
       const contacts = await response.json();
+      console.log('✅ [CampaignDetailPage] handleExport: contactos obtenidos:', contacts?.length);
 
       if (!contacts || contacts.length === 0) {
         toast('La campaña no tiene contactos para exportar', { icon: 'ℹ️' });
@@ -103,26 +104,19 @@ export default function CampaignDetailPage() {
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-      
-      const wscols = [
-        { wch: 10 },
-        { wch: 30 },
-        { wch: 15 },
-        { wch: 15 },
-        { wch: 15 },
-        { wch: 10 },
-        { wch: 50 },
+      worksheet['!cols'] = [
+        { wch: 10 }, { wch: 30 }, { wch: 15 }, { wch: 15 },
+        { wch: 15 }, { wch: 10 }, { wch: 50 },
       ];
-      worksheet['!cols'] = wscols;
 
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Contactos");
-
       XLSX.writeFile(workbook, `Reporte_Campaña_${campaign?.name || 'export'}.xlsx`);
 
+      console.log('✅ [CampaignDetailPage] handleExport: Excel generado');
       toast.success('Excel generado correctamente');
     } catch (error: any) {
-      console.error(error);
+      console.error('❌ [CampaignDetailPage] handleExport error:', error);
       toast.error('Error al exportar contactos');
     } finally {
       setDownloading(false);
@@ -130,49 +124,70 @@ export default function CampaignDetailPage() {
   };
 
   const handleStart = async () => {
+    console.log('📌 [CampaignDetailPage] handleStart iniciado');
     try {
       await startCampaign(campaignId);
+      console.log('✅ [CampaignDetailPage] handleStart OK');
       toast.success('Campaña iniciada');
     } catch (error: any) {
+      console.error('❌ [CampaignDetailPage] handleStart error:', error);
       toast.error(error.message);
     }
   };
 
   const handlePause = async () => {
+    console.log('📌 [CampaignDetailPage] handlePause iniciado');
     try {
       await pauseCampaign(campaignId);
+      console.log('✅ [CampaignDetailPage] handlePause OK');
       toast.success('Campaña pausada');
     } catch (error: any) {
+      console.error('❌ [CampaignDetailPage] handlePause error:', error);
       toast.error(error.message);
     }
   };
 
   const handleCancel = async () => {
+    console.log('📌 [CampaignDetailPage] handleCancel iniciado');
     if (confirm('¿Estás seguro de cancelar esta campaña? Esta acción no se puede deshacer.')) {
       try {
         await cancelCampaign(campaignId);
+        console.log('✅ [CampaignDetailPage] handleCancel OK');
         toast.success('Campaña cancelada');
       } catch (error: any) {
+        console.error('❌ [CampaignDetailPage] handleCancel error:', error);
         toast.error(error.message);
       }
+    } else {
+      console.log('📌 [CampaignDetailPage] handleCancel: usuario canceló el confirm');
     }
   };
 
+  // ─── EDITAR: el punto clave ──────────────────────────────────────────────
   const handleUpdate = async (data: any) => {
+    console.log('▶️  [CampaignDetailPage] handleUpdate INICIO');
+    console.log('   campaignId:', campaignId);
+    console.log('   data recibido del form:', data);
     setUpdating(true);
     try {
       await updateCampaign(campaignId, data);
+      console.log('✅ [CampaignDetailPage] updateCampaign OK');
       toast.success('Campaña actualizada');
-      setShowEditModal(false);
-      return campaignId; // retorna el id para que post-call se guarde si hay cambios
+      console.log('   Retornando campaignId al form:', campaignId);
+      return campaignId;
     } catch (error: any) {
+      console.error('❌ [CampaignDetailPage] handleUpdate error:', error);
       toast.error(error.message);
+      // IMPORTANTE: si falla aquí, no retorna nada → undefined
+      // El form va a usar campaignId prop como fallback
     } finally {
       setUpdating(false);
+      console.log('📌 [CampaignDetailPage] handleUpdate FINALIZADO. updating = false');
     }
   };
 
   const handleAddContacts = async (contacts: any[]) => {
+    console.log('📌 [CampaignDetailPage] handleAddContacts:', contacts.length, 'contactos');
     await addContacts(campaignId, contacts);
   };
 
@@ -196,47 +211,36 @@ export default function CampaignDetailPage() {
 
       <div className="p-6 space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <Link
-            href="/campaigns"
-            className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors group"
-          >
+          <Link href="/campaigns" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors group">
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
             Volver a campañas
           </Link>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button 
-              variant="outline" 
-              onClick={handleExport} 
-              isLoading={downloading}
-              className="bg-background shadow-sm hover:bg-accent"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Exportar Excel
+            <Button variant="outline" onClick={handleExport} isLoading={downloading} className="bg-background shadow-sm hover:bg-accent">
+              <Download className="w-4 h-4 mr-2" /> Exportar Excel
             </Button>
-
             {canStart && (
               <Button onClick={handleStart} className="shadow-sm">
-                <Play className="w-4 h-4 mr-2 fill-current" />
-                Iniciar
+                <Play className="w-4 h-4 mr-2 fill-current" /> Iniciar
               </Button>
             )}
             {canPause && (
               <Button variant="secondary" onClick={handlePause} className="bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50">
-                <Pause className="w-4 h-4 mr-2 fill-current" />
-                Pausar
+                <Pause className="w-4 h-4 mr-2 fill-current" /> Pausar
               </Button>
             )}
             {canEdit && (
-              <Button variant="outline" onClick={() => setShowEditModal(true)} className="bg-background">
-                <Edit2 className="w-4 h-4 mr-2" />
-                Editar
+              <Button variant="outline" onClick={() => {
+                console.log('📌 [CampaignDetailPage] Abriendo modal de edición');
+                setShowEditModal(true);
+              }} className="bg-background">
+                <Edit2 className="w-4 h-4 mr-2" /> Editar
               </Button>
             )}
             {canCancel && (
               <Button variant="danger" onClick={handleCancel}>
-                <XCircle className="w-4 h-4 mr-2" />
-                Cancelar
+                <XCircle className="w-4 h-4 mr-2" /> Cancelar
               </Button>
             )}
           </div>
@@ -251,9 +255,7 @@ export default function CampaignDetailPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Estado</p>
-                  <div className="mt-1">
-                    <StatusBadge status={campaign.status} />
-                  </div>
+                  <div className="mt-1"><StatusBadge status={campaign.status} /></div>
                 </div>
               </div>
             </CardContent>
@@ -314,8 +316,7 @@ export default function CampaignDetailPage() {
             <h3 className="text-lg font-bold text-foreground">Contactos de la Campaña</h3>
             {canAddContacts && (
               <Button size="sm" onClick={() => setShowAddContactsModal(true)} className="shadow-sm">
-                <UserPlus className="w-4 h-4 mr-2" />
-                Agregar Contactos
+                <UserPlus className="w-4 h-4 mr-2" /> Agregar Contactos
               </Button>
             )}
           </CardHeader>
@@ -327,10 +328,13 @@ export default function CampaignDetailPage() {
         </Card>
       </div>
 
-      {/* Modal Editar — pasa campaignId para que PostCallConfigSection cargue la config existente */}
+      {/* Modal Editar */}
       <Modal
         isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
+        onClose={() => {
+          console.log('📌 [CampaignDetailPage] Modal onClose llamado (X o click fuera)');
+          setShowEditModal(false);
+        }}
         title="Editar Campaña"
         size="lg"
       >
@@ -345,7 +349,15 @@ export default function CampaignDetailPage() {
             retryOnAnswer: campaign.retryOnAnswer,
           }}
           onSubmit={handleUpdate}
-          onCancel={() => setShowEditModal(false)}
+          onCancel={() => {
+            console.log('📌 [CampaignDetailPage] CampaignForm onCancel (botón Cancelar)');
+            setShowEditModal(false);
+          }}
+          onSuccess={() => {
+            console.log('✅ [CampaignDetailPage] CampaignForm onSuccess → cerrando modal y refetcheando');
+            setShowEditModal(false);
+            fetchCampaignById(campaignId);
+          }}
           isLoading={updating}
           submitLabel="Guardar Cambios"
         />

@@ -10,12 +10,12 @@ import { Modal } from '@/components/ui/Modal';
 import { CampaignForm } from '@/components/campaigns/CampaignForm';
 import { useCampaignStore } from '@/stores/campaign.store';
 import { CreateCampaignDto, Campaign } from '@/types';
-import { 
-  Plus, Search, Filter, MoreHorizontal, 
-  ArrowLeft, ArrowRight, Calendar, Phone, Activity 
+import {
+  Plus, Search, Filter, MoreHorizontal,
+  ArrowLeft, ArrowRight, Calendar, Phone, Activity
 } from 'lucide-react';
-import { 
-  Table, TableHeader, TableBody, TableRow, TableCell 
+import {
+  Table, TableHeader, TableBody, TableRow, TableCell
 } from '@/components/ui/Table';
 import { StatusBadge } from '@/components/ui/Badge';
 import { formatDate } from '@/lib/utils';
@@ -43,24 +43,32 @@ export default function CampaignsPage() {
   const [campaignToDuplicate, setCampaignToDuplicate] = useState<Campaign | null>(null);
   const [creating, setCreating] = useState(false);
 
+  // ─── LOG: Modal abre/cierra ────────────────────────────────────────────
+  useEffect(() => {
+    console.log('📌 [CampaignsPage] showCreateModal cambió a:', showCreateModal);
+  }, [showCreateModal]);
+
+  useEffect(() => {
+    console.log('📌 [CampaignsPage] showDuplicateModal cambió a:', showDuplicateModal);
+  }, [showDuplicateModal]);
+
   const fetchCampaigns = useCallback(async () => {
+    console.log('📌 [CampaignsPage] fetchCampaigns iniciado. Params:', { page, limit, search: debouncedSearch, status: statusFilter });
     setIsLoading(true);
     try {
       const response = await campaignsApi.getAll({
-        page,
-        limit,
+        page, limit,
         search: debouncedSearch,
         status: statusFilter,
       });
-
       const { data, meta } = response.data;
-
       if (data) {
         setCampaigns(data);
         setMeta(meta);
+        console.log('✅ [CampaignsPage] fetchCampaigns OK. Total:', meta.total);
       }
     } catch (error) {
-      console.error(error);
+      console.error('❌ [CampaignsPage] fetchCampaigns error:', error);
       toast.error('Error al cargar el listado de campañas');
     } finally {
       setIsLoading(false);
@@ -75,34 +83,49 @@ export default function CampaignsPage() {
     setPage(1);
   }, [debouncedSearch, statusFilter]);
 
+  // ─── CREAR ─────────────────────────────────────────────────────────────
   const handleCreate = async (data: CreateCampaignDto) => {
+    console.log('▶️  [CampaignsPage] handleCreate INICIO');
+    console.log('   data del form:', data);
     setCreating(true);
     try {
       const newCampaign = await createCampaign(data);
+      console.log('✅ [CampaignsPage] createCampaign OK. Nueva campaña:', newCampaign);
       toast.success('Campaña creada exitosamente');
-      setShowCreateModal(false);
-      fetchCampaigns();
-      return newCampaign?.id; // retorna el id para que el form guarde post-call
+      console.log('   Retornando ID al form:', newCampaign?.id);
+      return newCampaign?.id;
     } catch (err: any) {
+      console.error('❌ [CampaignsPage] handleCreate error:', err);
       toast.error(err.message);
+      // Si falla, no retorna → undefined. El form usará campaignId prop (que es undefined en crear)
     } finally {
       setCreating(false);
+      console.log('📌 [CampaignsPage] handleCreate FINALIZADO. creating = false');
     }
   };
 
+  // ─── DUPLICAR ──────────────────────────────────────────────────────────
   const handleDuplicate = async (data: CreateCampaignDto) => {
-    if (!campaignToDuplicate) return;
+    console.log('▶️  [CampaignsPage] handleDuplicate INICIO');
+    console.log('   campaignToDuplicate:', campaignToDuplicate?.id, campaignToDuplicate?.name);
+    console.log('   data del form:', data);
+    if (!campaignToDuplicate) {
+      console.warn('⚠️ [CampaignsPage] handleDuplicate: campaignToDuplicate es null. Abortando.');
+      return;
+    }
     setCreating(true);
     try {
       const newCampaign = await duplicateCampaign(campaignToDuplicate.id, data);
+      console.log('✅ [CampaignsPage] duplicateCampaign OK. Nueva campaña:', newCampaign);
       toast.success('Campaña duplicada correctamente');
-      setShowDuplicateModal(false);
-      fetchCampaigns();
-      return newCampaign?.id; // retorna el id para que el form guarde post-call
+      console.log('   Retornando ID al form:', newCampaign?.id);
+      return newCampaign?.id;
     } catch (err: any) {
+      console.error('❌ [CampaignsPage] handleDuplicate error:', err);
       toast.error(err.message);
     } finally {
       setCreating(false);
+      console.log('📌 [CampaignsPage] handleDuplicate FINALIZADO. creating = false');
     }
   };
 
@@ -120,7 +143,6 @@ export default function CampaignsPage() {
       <Header title="Campañas" subtitle="Gestiona y monitorea tus campañas de llamadas" />
 
       <div className="p-6 space-y-6">
-        
         <div className="flex flex-col md:flex-row justify-between gap-4 bg-card p-4 rounded-xl border border-border/50 shadow-sm">
           <div className="flex flex-col sm:flex-row gap-3 flex-1">
             <div className="relative w-full sm:w-80">
@@ -139,9 +161,11 @@ export default function CampaignsPage() {
               className="w-full sm:w-46"
             />
           </div>
-          <Button onClick={() => setShowCreateModal(true)} className="shadow-sm">
-            <Plus className="w-4 h-4 mr-2" />
-            Nueva Campaña
+          <Button onClick={() => {
+            console.log('📌 [CampaignsPage] Abriendo modal de crear');
+            setShowCreateModal(true);
+          }} className="shadow-sm">
+            <Plus className="w-4 h-4 mr-2" /> Nueva Campaña
           </Button>
         </div>
 
@@ -182,44 +206,36 @@ export default function CampaignsPage() {
                   <TableRow key={camp.id} className="group hover:bg-muted/30 transition-colors">
                     <TableCell>
                       <Link href={`/campaigns/${camp.id}`} className="block">
-                        <span className="font-semibold text-foreground hover:text-primary transition-colors">
-                          {camp.name}
-                        </span>
+                        <span className="font-semibold text-foreground hover:text-primary transition-colors">{camp.name}</span>
                         <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
                           ID: <span className="font-mono text-[10px]">{camp.id.split('-')[0]}...</span>
                         </div>
                       </Link>
                     </TableCell>
-                    <TableCell>
-                      <StatusBadge status={camp.status} />
-                    </TableCell>
+                    <TableCell><StatusBadge status={camp.status} /></TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Phone className="w-3 h-3" /> {camp.concurrentCalls} canales
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Activity className="w-3 h-3" /> {camp.maxRetries} reintentos
-                        </span>
+                        <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {camp.concurrentCalls} canales</span>
+                        <span className="flex items-center gap-1"><Activity className="w-3 h-3" /> {camp.maxRetries} reintentos</span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1 text-sm">
                         <span className="flex items-center gap-1.5 text-foreground">
-                          <Calendar className="w-3.5 h-3.5 text-primary" /> 
-                          {formatDate(camp.startDate, { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' })}
+                          <Calendar className="w-3.5 h-3.5 text-primary" />
+                          {formatDate(camp.startDate, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </span>
                         <span className="text-xs text-muted-foreground ml-5">
-                          hasta {formatDate(camp.endDate, { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' })}
+                          hasta {formatDate(camp.endDate, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
+                        <Button
+                          size="sm" variant="ghost"
                           onClick={() => {
+                            console.log('📌 [CampaignsPage] Abriendo modal de duplicar para:', camp.id, camp.name);
                             setCampaignToDuplicate(camp);
                             setShowDuplicateModal(true);
                           }}
@@ -229,9 +245,7 @@ export default function CampaignsPage() {
                           <MoreHorizontal className="w-4 h-4" />
                         </Button>
                         <Link href={`/campaigns/${camp.id}`}>
-                          <Button size="sm" variant="secondary">
-                            Ver Detalle
-                          </Button>
+                          <Button size="sm" variant="secondary">Ver Detalle</Button>
                         </Link>
                       </div>
                     </TableCell>
@@ -248,22 +262,10 @@ export default function CampaignsPage() {
               Total: {meta.total} campañas
             </div>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1 || isLoading}
-                className="bg-background"
-              >
+              <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1 || isLoading} className="bg-background">
                 <ArrowLeft className="w-4 h-4 mr-1" /> Anterior
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(p => Math.min(meta.lastPage, p + 1))}
-                disabled={page >= meta.lastPage || isLoading}
-                className="bg-background"
-              >
+              <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(meta.lastPage, p + 1))} disabled={page >= meta.lastPage || isLoading} className="bg-background">
                 Siguiente <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
@@ -274,13 +276,24 @@ export default function CampaignsPage() {
       {/* Modal Crear */}
       <Modal
         isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
+        onClose={() => {
+          console.log('📌 [CampaignsPage] Modal Crear onClose (X o click fuera)');
+          setShowCreateModal(false);
+        }}
         title="Crear Nueva Campaña"
         size="lg"
       >
         <CampaignForm
           onSubmit={handleCreate}
-          onCancel={() => setShowCreateModal(false)}
+          onCancel={() => {
+            console.log('📌 [CampaignsPage] CampaignForm Crear onCancel');
+            setShowCreateModal(false);
+          }}
+          onSuccess={() => {
+            console.log('✅ [CampaignsPage] CampaignForm Crear onSuccess → cerrando modal y refetcheando');
+            setShowCreateModal(false);
+            fetchCampaigns();
+          }}
           isLoading={creating}
         />
       </Modal>
@@ -289,6 +302,7 @@ export default function CampaignsPage() {
       <Modal
         isOpen={showDuplicateModal}
         onClose={() => {
+          console.log('📌 [CampaignsPage] Modal Duplicar onClose (X o click fuera)');
           setShowDuplicateModal(false);
           setCampaignToDuplicate(null);
         }}
@@ -305,8 +319,15 @@ export default function CampaignsPage() {
             }}
             onSubmit={handleDuplicate}
             onCancel={() => {
+              console.log('📌 [CampaignsPage] CampaignForm Duplicar onCancel');
               setShowDuplicateModal(false);
               setCampaignToDuplicate(null);
+            }}
+            onSuccess={() => {
+              console.log('✅ [CampaignsPage] CampaignForm Duplicar onSuccess → cerrando modal y refetcheando');
+              setShowDuplicateModal(false);
+              setCampaignToDuplicate(null);
+              fetchCampaigns();
             }}
             isLoading={creating}
             submitLabel="Duplicar Campaña"
